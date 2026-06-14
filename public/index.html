@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebhookEngine — Developer Console & Dispatcher</title>
+  <!-- SEO Elements -->
+  <meta name="description" content="Premium SaaS webhook engineering workspace featuring automated retries, signature verification logs, and interactive dispatch simulators.">
+  
+  <!-- Modern Typography and Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- HTML5 Background Space Simulation -->
+  <canvas id="canvas-space-simulation"></canvas>
+
+
+  <div class="app-container">
+    <!-- Sleek SaaS Header -->
+    <header class="main-header">
+      <div class="header-logo">
+        <div class="logo-icon">
+          <svg width="44" height="44" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="pulse-icon logo-svg-glow">
+            <defs>
+              <linearGradient id="anchor-bolt-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#0070f3" />
+                <stop offset="40%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#10b981" />
+              </linearGradient>
+            </defs>
+            <rect x="12" y="50" width="26" height="20" rx="4" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M 18 60 L 32 60" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" />
+            <path d="M 27 55 L 32 60 L 27 65" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="60" cy="26" r="6" stroke="url(#anchor-bolt-grad)" stroke-width="3" />
+            <path d="M 48 38 L 72 38" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" />
+            <path d="M 60 32 L 60 85" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" />
+            <path d="M 38 70 C 38 86, 48 96, 60 96 C 72 96, 82 86, 82 70" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M 42 62 L 51 84 L 60 62 L 69 84 L 78 62" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M 78 62 L 98 42" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" />
+            <path d="M 88 42 L 98 42 L 98 52" stroke="url(#anchor-bolt-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>Webhook<span>Engine</span></h1>
+          <span class="badge badge-purple-glow">pro v1.0</span>
+        </div>
+      </div>
+      <div class="header-status" style="display: flex; align-items: center; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="pulse-dot"></span>
+          <span class="status-label">Active Listener</span>
+        </div>
+        <button id="btn-logout" class="btn btn-sm" style="display: none; padding: 6px 12px; background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.2); border-radius: 6px; color: #f43f5e; font-weight: 500; font-family: inherit; font-size: 0.8rem; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;">
+          <i data-lucide="log-out" style="width: 0.85rem; height: 0.85rem;"></i> Sign Out
+        </button>
+      </div>
+    </header>
+
+    <!-- Dynamic Metrics Grid -->
+    <section class="stats-grid">
+      <!-- Success Rate (with Sparkline) -->
+      <div class="stat-card" id="stat-success-rate">
+        <div class="stat-header">
+          <span class="stat-label">Delivery Success</span>
+          <div class="stat-icon-wrap text-success">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+        </div>
+        <div class="stat-row">
+          <h2 class="stat-val" id="val-success-rate">0.0%</h2>
+          <!-- Sparkline container -->
+          <div class="sparkline-container">
+            <svg class="sparkline" viewBox="0 0 100 30">
+              <path id="sparkline-success" d="M0,28 L10,25 L20,28 L30,22 L40,26 L50,15 L60,18 L70,8 L80,12 L90,2 L100,5" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-footer-bar">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar-success-rate" style="width: 0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Total Deliveries -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Total Volume</span>
+          <div class="stat-icon-wrap text-blue">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </div>
+        </div>
+        <div class="stat-row">
+          <h2 class="stat-val" id="val-total-deliveries">0</h2>
+          <span class="stat-trend text-success"><i data-lucide="trending-up"></i> +12%</span>
+        </div>
+        <span class="stat-desc">Attempts processed by engine</span>
+      </div>
+
+      <!-- Active Endpoints -->
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-label">Active Destinations</span>
+          <div class="stat-icon-wrap text-purple">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+        </div>
+        <div class="stat-row">
+          <h2 class="stat-val" id="val-active-endpoints">0</h2>
+        </div>
+        <span class="stat-desc">Endpoints listening live</span>
+      </div>
+
+      <!-- Avg Response Time (with Sparkline) -->
+      <div class="stat-card" id="stat-avg-response">
+        <div class="stat-header">
+          <span class="stat-label">Avg Latency</span>
+          <div class="stat-icon-wrap text-cyan">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+        </div>
+        <div class="stat-row">
+          <h2 class="stat-val" id="val-avg-response">0 ms</h2>
+          <!-- Sparkline container -->
+          <div class="sparkline-container">
+            <svg class="sparkline" viewBox="0 0 100 30">
+              <path id="sparkline-latency" d="M0,5 L10,12 L20,8 L30,18 L40,12 L50,22 L60,15 L70,25 L80,18 L90,28 L100,22" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"></path>
+            </svg>
+          </div>
+        </div>
+        <span class="stat-desc">Average network roundtrip</span>
+      </div>
+
+      <!-- Pending Retries -->
+      <div class="stat-card" id="stat-pending-card">
+        <div class="stat-header">
+          <span class="stat-label">Retry Backlog</span>
+          <div class="stat-icon-wrap text-warning">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          </div>
+        </div>
+        <div class="stat-row">
+          <h2 class="stat-val" id="val-pending-retries">0</h2>
+        </div>
+        <span class="stat-desc">Retries in queue scheduled</span>
+      </div>
+
+      <!-- Subscription Plan -->
+      <div class="stat-card" id="stat-subscription-card">
+        <div class="stat-header">
+          <span class="stat-label">SaaS Subscription</span>
+          <div class="stat-icon-wrap text-purple" id="sub-card-icon-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+        </div>
+        <div class="stat-row" style="align-items: center; justify-content: space-between; gap: 8px;">
+          <h2 class="stat-val" id="val-plan-tier" style="font-size: 1.5rem;">Free Starter</h2>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-upgrade-plan" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; background: linear-gradient(135deg, #0070f3 0%, #06b6d4 100%); border: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: #fff;">
+            <i data-lucide="sparkles" style="width:0.8rem;height:0.8rem"></i> Upgrade
+          </button>
+        </div>
+        <div class="stat-footer-bar" style="margin-top: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-bottom: 4px;">
+            <span>Monthly Usage</span>
+            <span id="txt-quota-fraction">0 / 5,000</span>
+          </div>
+          <div class="progress-bar-bg" style="height: 6px;"><div class="progress-bar-fill" id="bar-quota-usage" style="width: 0%; background: linear-gradient(90deg, #0070f3, #06b6d4);"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Layout Grid (Strict 24px Gaps) -->
+    <div class="workspace-grid">
+      
+      <!-- Left Column: Endpoint Registry -->
+      <div class="column-left">
+        <!-- New Endpoint Registration Form -->
+        <div class="card glass-card">
+          <div class="card-header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-purple"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+            <h2>Register Endpoint</h2>
+          </div>
+          <form id="form-register-endpoint" class="card-body">
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="ep-id">Endpoint Identifier</label>
+                <input type="text" id="ep-id" placeholder="e.g., core-billing" required>
+              </div>
+              <div class="form-group">
+                <label for="ep-secret">HMAC Signing Secret</label>
+                <input type="text" id="ep-secret" placeholder="Defaults to global engine key">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="ep-url">Destination Payload URL</label>
+              <input type="url" id="ep-url" placeholder="https://api.yourdomain.com/v1/webhooks" required>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="ep-events">Subscribed Event Triggers</label>
+                <input type="text" id="ep-events" value="*" placeholder="e.g., payment.success, user.created">
+              </div>
+              <div class="form-group">
+                <label for="ep-integration">Integration Type</label>
+                <select id="ep-integration">
+                  <option value="standard">Standard Webhook (Signed)</option>
+                  <option value="slack">Slack Message Attachment</option>
+                  <option value="discord">Discord Embed Card</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="ep-headers">Custom Outgoing Headers (JSON)</label>
+                <input type="text" id="ep-headers" placeholder='{"Authorization": "Bearer 123"}'>
+              </div>
+              <div class="form-group">
+                <label for="ep-desc">Internal Description</label>
+                <input type="text" id="ep-desc" placeholder="Briefly describe the receiver's purpose...">
+              </div>
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="ep-max-rpm">Rate Limit (Max RPM)</label>
+                <input type="number" id="ep-max-rpm" placeholder="e.g. 60 (leave blank for unlimited)" min="1" max="10000">
+              </div>
+              <div class="form-group">
+                <label for="ep-circuit-threshold">Circuit Threshold (Failures)</label>
+                <input type="number" id="ep-circuit-threshold" placeholder="e.g. 5 (failures before OPEN)" min="1" max="100" value="5">
+              </div>
+            </div>
+            <!-- Collapsible JavaScript payload transformation section -->
+            <details class="form-group-collapsible" style="margin-top: 15px; margin-bottom: 20px;">
+              <summary style="font-size: 0.85rem; font-weight: 600; color: var(--cyan); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; padding: 6px 0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-cyan"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>
+                Payload JavaScript Transformation (Optional)
+              </summary>
+              <div class="collapsible-content" style="padding: 10px 0; display: flex; flex-direction: column; gap: 10px;">
+                <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; margin: 0;">
+                  Write custom JavaScript to restructure, filter, or enrich payloads before they are signed and dispatched. Must declare <code>function transform(payload)</code>.
+                </p>
+                <div class="code-editor-container" style="min-height: 140px; margin-top: 5px;">
+                  <div class="editor-header header-split" style="padding: 6px 12px; background: rgba(0,0,0,0.2);">
+                    <span class="tab active" style="font-size: 0.75rem;"><i data-lucide="file-code" style="width:0.8rem;height:0.8rem;margin-right:0.25rem"></i> transform.js</span>
+                    <button type="button" class="btn" id="btn-test-transform-dry-run" style="padding: 4px 10px; font-size: 0.7rem; border-radius: 4px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: #06b6d4; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                      <i data-lucide="play" style="width: 0.75rem; height: 0.75rem;"></i> Run Dry-Run
+                    </button>
+                  </div>
+                  <div class="editor-workspace">
+                    <textarea id="ep-transform-script" class="code-textarea" style="font-family: var(--font-mono); font-size: 0.8rem; min-height: 140px; border: none; padding: 12px; background: rgba(5,6,9,0.3); color: #fff; width: 100%; outline: none; resize: vertical;" spellcheck="false" placeholder="function transform(payload) {&#10;  // Transform payload.data&#10;  payload.data.processed_at = new Date().toISOString();&#10;  return payload;&#10;}"></textarea>
+                  </div>
+                </div>
+                <div id="transform-dry-run-result" style="display: none; font-size: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); padding: 12px; font-family: var(--font-mono); max-height: 180px; overflow-y: auto; background: rgba(0,0,0,0.45); white-space: pre-wrap; word-break: break-all;">
+                  <!-- Output result goes here -->
+                </div>
+              </div>
+            </details>
+
+            <button type="submit" class="btn btn-primary" id="btn-register">
+              <i data-lucide="plus"></i> Add Webhook Endpoint
+            </button>
+          </form>
+        </div>
+
+        <!-- Billing Alert Banners -->
+        <div id="billing-warning-alert" style="display: none; padding: 12px 16px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; margin-bottom: 20px; font-family: inherit; font-size: 0.85rem; color: #fbbf24; align-items: center; gap: 10px; transition: all 0.3s ease;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-warning" style="flex-shrink: 0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span id="billing-warning-text" style="flex-grow: 1;">Warning: You have consumed X% of your free allocation. Upgrade now to prevent immediate service disruption.</span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="handleUpgradeClick()" style="padding: 4px 10px; font-size: 0.75rem; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; flex-shrink: 0; color: #fff; cursor: pointer; border-radius: 4px; font-family: inherit; font-weight: 500; display: inline-flex; align-items: center;">Upgrade</button>
+        </div>
+
+        <div id="billing-exhausted-alert" style="display: none; padding: 12px 16px; background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.25); border-radius: 8px; margin-bottom: 20px; font-family: inherit; font-size: 0.85rem; color: #f43f5e; align-items: center; gap: 10px; transition: all 0.3s ease;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-danger" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          <span style="flex-grow: 1;"><strong>Service Suspended:</strong> You have exhausted 100% of your plan's quota limit. Please upgrade to unlock dashboard operations.</span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="handleUpgradeClick()" style="padding: 4px 10px; font-size: 0.75rem; background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); border: none; flex-shrink: 0; color: #fff; cursor: pointer; border-radius: 4px; font-family: inherit; font-weight: 500; display: inline-flex; align-items: center;">Unlock Now</button>
+        </div>
+
+        <!-- Registered Endpoints List -->
+        <div class="card glass-card">
+          <div class="card-header header-split">
+            <div class="header-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-blue"><path d="M12 2H2v10h10V2zM22 12H12v10h10V12zM12 12H2v10h10V12zM22 2H12v10h10V2z"/></svg>
+              <h2>Configured Endpoints</h2>
+            </div>
+            <span class="count-badge" id="endpoints-count">0</span>
+          </div>
+          <div class="card-body list-container" id="endpoints-list">
+            <div class="empty-state">
+              <i data-lucide="link-2"></i>
+              <p>No active webhooks configured.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Interactive Simulator Console -->
+      <div class="column-right">
+        <!-- Dashboard Usage Panel Component -->
+        <div id="billing-monitor-card" class="card glass-card" style="margin-bottom: 24px; display: none;">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px; margin-bottom: 15px;">
+            <div>
+              <span style="font-size: 0.75rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Plan Usage & Allocation</span>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <span id="display-plan-tier" class="stat-val" style="font-size: 1.4rem; margin: 0; font-weight: 700; color: #fff; text-transform: capitalize;">Developer Free</span>
+                <span id="badge-status" class="badge badge-success" style="font-weight: 600;">Active</span>
+              </div>
+            </div>
+            <button id="billing-upgrade-btn" onclick="handleUpgradeClick()" class="btn btn-primary btn-sm" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; background: linear-gradient(135deg, #0070f3 0%, #06b6d4 100%); border: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: #fff; display: none;">
+              <i data-lucide="sparkles" style="width:0.8rem;height:0.8rem"></i> Upgrade to Pro
+            </button>
+          </div>
+
+          <div class="card-body">
+            <!-- Dynamic Warning Banner -->
+            <div id="usage-alert-banner" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 0.8rem; margin-bottom: 15px; border: 1px solid rgba(245, 158, 11, 0.2); background: rgba(245, 158, 11, 0.08); color: #fbbf24;">
+              ⚠️ <strong>Quota Warning:</strong> Your workspace has consumed over 80% of its monthly allocation. Upgrade to prevent automatic delivery blocking.
+            </div>
+
+            <!-- The Progress Track Bar -->
+            <div class="progress-bar-bg" style="height: 10px; margin-bottom: 12px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden; position: relative;">
+              <div id="usage-progress-bar" class="progress-bar-fill" style="width: 0%; height: 100%; transition: all 0.5s ease-out; background: linear-gradient(90deg, #0070f3, #06b6d4);"></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: rgba(255,255,255,0.5); font-weight: 500;">
+              <div>
+                <span id="usage-current" style="color: #fff; font-weight: 700;">0</span> / 
+                <span id="usage-max" style="color: #fff; font-weight: 700;">5,000</span> dispatches consumed
+              </div>
+              <div>
+                Resets on: <span id="usage-reset-date" style="color: #fff;">--/--/----</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card glass-card h-full">
+          <div class="card-header header-split">
+            <div class="header-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-success"><path d="m5 3 14 9-14 9V3z"/></svg>
+              <h2>Webhook Dispatch Simulator</h2>
+            </div>
+            <div class="live-indicator-wrapper">
+              <span class="live-pulse"></span>
+              <span class="badge badge-success-glow">LIVE MONITORING</span>
+            </div>
+          </div>
+          <div class="card-body flex-col h-full">
+            <div class="form-group">
+              <label>Select Event Template</label>
+              <div class="template-selector">
+                <button type="button" class="btn-template active" data-event="payment.success">payment.success</button>
+                <button type="button" class="btn-template" data-event="user.created">user.created</button>
+                <button type="button" class="btn-template" data-event="order.placed">order.placed</button>
+                <button type="button" class="btn-template" data-event="custom">custom.json</button>
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="event-name">Event Topic</label>
+                <input type="text" id="event-name" value="payment.success" required>
+              </div>
+              <div class="form-group">
+                <label>&nbsp;</label>
+                <span class="input-helper">Fires webhooks to endpoints matched to this topic.</span>
+              </div>
+            </div>
+
+            <!-- VS Code styled Code Editor -->
+            <div class="form-group flex-grow">
+              <label>Payload (JSON Editor)</label>
+              <div class="code-editor-container">
+                <div class="editor-header header-split">
+                  <span class="tab active"><i data-lucide="file-json"></i> payload.json</span>
+                  <button type="button" class="btn-copy-code" id="btn-copy-payload" title="Copy payload to clipboard">
+                    <i data-lucide="copy" style="width:0.75rem;height:0.75rem"></i> Copy
+                  </button>
+                </div>
+                <div class="editor-workspace">
+                  <div class="line-numbers" id="line-numbers">
+                    <!-- Dynamic lines -->
+                  </div>
+                  <div class="editor-area">
+                    <pre class="highlight-backdrop" id="highlight-backdrop"><code class="json-code" id="highlight-code"></code></pre>
+                    <textarea id="event-payload" class="code-textarea" spellcheck="false" required></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-success-gradient" id="btn-fire-event">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="margin-right-0.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Fire Webhook Event
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline & Logs -->
+    <div class="workspace-grid-2">
+      <!-- Dead Letter Queue (DLQ) Mass Redrive Panel -->
+      <div id="bulk-replay-panel" class="card glass-card">
+        <div class="card-header header-split">
+          <div class="header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-cyan"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            <h2>Dead Letter Queue (DLQ) Mass Redrive</h2>
+          </div>
+          <span class="badge badge-purple">DLQ Redrive</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;">
+            Mass-replay failed delivery payloads directly back to target workers over a specific infrastructure downtime window.
+          </p>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label for="bulk-start-time">Window Start Time</label>
+              <input type="datetime-local" id="bulk-start-time" required>
+            </div>
+            <div class="form-group">
+              <label for="bulk-end-time">Window End Time</label>
+              <input type="datetime-local" id="bulk-end-time" required>
+            </div>
+            <div class="form-group">
+              <label for="bulk-filter-status">Specific HTTP Status (Optional)</label>
+              <select id="bulk-filter-status">
+                <option value="">All Failures (4xx, 5xx, Timeouts)</option>
+                <option value="500">500 Internal Server Error</option>
+                <option value="504">504 Gateway Timeout</option>
+                <option value="400">400 Bad Request</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+            <button id="btn-trigger-bulk-redrive" onclick="handleBulkRedriveExecution()" class="btn btn-primary" style="padding: 10px 20px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+              <i data-lucide="refresh-cw" style="width: 1rem; height: 1rem;"></i> Execute Mass Replay Sequence
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs Stream Table -->
+      <div class="card glass-card">
+        <div class="card-header header-split">
+          <div class="header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-cyan"><path d="M12 20h9"/><path d="M3 20v-8a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v8"/><path d="M3 20h8"/><path d="M13 20v-4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"/><path d="M8 10V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v5"/></svg>
+            <h2>Engine Delivery Stream</h2>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-text-action" id="btn-bulk-redrive-open" style="background: rgba(0, 112, 243, 0.1); border-color: rgba(0, 112, 243, 0.2); color: #0070f3;">
+              <i data-lucide="refresh-cw"></i> Bulk Redrive
+            </button>
+            <button class="btn-text-action" id="btn-clear-logs">
+              <i data-lucide="trash-2"></i> Wipe Logs
+            </button>
+          </div>
+        </div>
+        <div class="card-body" style="position: relative;">
+          <!-- Floating Bulk Action Bar -->
+          <div id="bulk-action-bar" class="bulk-action-bar" style="display: none;">
+            <span id="bulk-selected-count" class="bulk-selected-count">0 items selected</span>
+            <div style="display: flex; gap: 8.5px; align-items: center;">
+              <button id="btn-bulk-redrive-selected" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; background: linear-gradient(135deg, #0070f3 0%, #06b6d4 100%); border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: #fff;">
+                <i data-lucide="refresh-cw" style="width:0.8rem;height:0.8rem"></i> Redrive Selected
+              </button>
+              <button id="btn-bulk-deselect" class="btn" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary); cursor: pointer; font-weight: 500;">
+                Deselect All
+              </button>
+            </div>
+          </div>
+          <div class="logs-table-container">
+            <table class="logs-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;"><input type="checkbox" id="checkbox-select-all" style="cursor: pointer; transform: scale(1.15);"></th>
+                  <th>Status</th>
+                  <th>Destination</th>
+                  <th>Topic</th>
+                  <th>Payload UUID</th>
+                  <th>Try</th>
+                  <th>Latency</th>
+                  <th>Code</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="logs-stream-body">
+                <tr class="empty-row">
+                  <td colspan="8">
+                    <div class="empty-state">
+                      <i data-lucide="activity"></i>
+                      <p>Trigger a simulated event to generate delivery attempts.</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Configuration Panel -->
+    <div class="workspace-grid-2" style="margin-top:0">
+      <details class="card glass-card security-panel" id="security-panel">
+        <summary class="card-header security-summary">
+          <div class="header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-warning"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <h2>Security &amp; Infrastructure Configuration</h2>
+          </div>
+          <span class="badge badge-warning" style="pointer-events:none">Click to Expand</span>
+        </summary>
+        <div class="card-body security-grid" id="security-info-body">
+          <div class="security-loading">Loading system info...</div>
+        </div>
+      </details>
+    </div>
+
+    <!-- Alerts & Integrations Panel -->
+    <div class="workspace-grid-2" style="margin-top:20px">
+      <details class="card glass-card security-panel" id="alert-settings-panel">
+        <summary class="card-header security-summary" style="background: rgba(255,255,255,0.03); cursor: pointer;">
+          <div class="header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-purple"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <h2>Alerts &amp; Incident Integrations</h2>
+          </div>
+          <span class="badge badge-purple" style="pointer-events:none">Incidents</span>
+        </summary>
+        <form id="form-alert-settings" class="card-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;">
+            Configure real-time notifications to Slack and PagerDuty when endpoints experience repeated consecutive delivery failures.
+          </p>
+          
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="alert-slack-url">Slack Incoming Webhook URL</label>
+              <input type="url" id="alert-slack-url" placeholder="https://hooks.slack.com/services/... (optional)">
+            </div>
+            <div class="form-group">
+              <label for="alert-pd-key">PagerDuty Routing Key</label>
+              <input type="text" id="alert-pd-key" placeholder="Enter PagerDuty V2 Integration Key (optional)">
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="alert-failure-count">Consecutive Failure Threshold</label>
+              <input type="number" id="alert-failure-count" min="1" max="50" value="3" placeholder="Number of failures before alerting" required>
+            </div>
+            <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px; margin-top: 25px;">
+              <label class="switch" style="margin-bottom: 0;">
+                <input type="checkbox" id="alert-enabled" checked>
+                <span class="slider"></span>
+              </label>
+              <span style="font-size: 0.85rem; font-weight: 500;">Enable Incident Alerting Engine</span>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
+            <button type="button" id="btn-test-alerts" class="btn" style="padding: 10px 20px; font-size: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+              <i data-lucide="bell" style="width: 1rem; height: 1rem; margin-right: 4px; display: inline-block; vertical-align: middle;"></i> Test Integration
+            </button>
+            <button type="submit" id="btn-save-alerts" class="btn btn-primary" style="padding: 10px 20px; font-size: 0.85rem;">
+              <i data-lucide="save" style="width: 1rem; height: 1rem; margin-right: 4px; display: inline-block; vertical-align: middle;"></i> Save Settings
+            </button>
+          </div>
+        </form>
+      </details>
+    </div>
+
+    <!-- SaaS Billing & Webhook Simulator Panel -->
+    <div class="workspace-grid-2" style="margin-top:20px">
+      <details class="card glass-card security-panel" id="billing-simulator-panel">
+        <summary class="card-header security-summary" style="background: rgba(255,255,255,0.03); cursor: pointer;">
+          <div class="header-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-success"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <h2>Razorpay Billing &amp; Quota Simulator</h2>
+          </div>
+          <span class="badge badge-success" style="pointer-events:none">Developer Tools</span>
+        </summary>
+        <div class="card-body" style="padding: 20px;">
+          <p style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 15px; line-height: 1.4;">Fire simulated Razorpay subscription webhook events to test the subscription states and quota gate enforcement programmatically.</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <button type="button" class="btn btn-sm btn-simulate-billing" data-event="subscription.activated" style="padding: 8px 14px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; color: #10b981; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              <i data-lucide="play" style="width: 0.8rem; height: 0.8rem;"></i> Activate subscription
+            </button>
+            <button type="button" class="btn btn-sm btn-simulate-billing" data-event="subscription.charged" style="padding: 8px 14px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 6px; color: #06b6d4; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              <i data-lucide="refresh-cw" style="width: 0.8rem; height: 0.8rem;"></i> Charge subscription
+            </button>
+            <button type="button" class="btn btn-sm btn-simulate-billing" data-event="subscription.halted" style="padding: 8px 14px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; color: #f59e0b; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              <i data-lucide="pause" style="width: 0.8rem; height: 0.8rem;"></i> Halt subscription
+            </button>
+            <button type="button" class="btn btn-sm btn-simulate-billing" data-event="subscription.cancelled" style="padding: 8px 14px; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 6px; color: #f43f5e; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              <i data-lucide="square" style="width: 0.8rem; height: 0.8rem;"></i> Cancel subscription
+            </button>
+            
+            <span style="font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-left: auto;" id="sim-billing-status">Ready</span>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <!-- API Key Authentication / Onboarding Modal -->
+    <div class="modal" id="modal-auth">
+      <div class="modal-content auth-modal-content" id="auth-modal-box">
+        <div class="auth-modal-inner">
+          <!-- Lock icon -->
+          <div class="auth-icon-wrap" style="margin-bottom: 15px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="auth-lock-icon">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <h3 class="auth-title" style="font-size: 1.35rem; font-weight: 600; margin-bottom: 20px;">SaaS Console Access</h3>
+          
+          <!-- Tab Navigation -->
+          <div class="auth-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+            <button type="button" class="auth-tab active" id="tab-login" style="background: none; border: none; color: #fff; font-family: inherit; font-size: 0.9rem; cursor: pointer; padding: 5px 10px; border-bottom: 2px solid #0070f3; transition: all 0.2s; font-weight: 500;">Sign In</button>
+            <button type="button" class="auth-tab" id="tab-onboard" style="background: none; border: none; color: rgba(255,255,255,0.6); font-family: inherit; font-size: 0.9rem; cursor: pointer; padding: 5px 10px; transition: all 0.2s;">Onboard (Free)</button>
+          </div>
+
+          <!-- Login Pane -->
+          <div id="pane-login" class="auth-pane">
+            <p class="auth-subtitle" style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 15px; line-height: 1.4;">Sign in to unlock your WebhookEngine console.</p>
+            <div class="auth-input-wrap" style="margin-bottom: 10px;">
+              <input
+                type="email"
+                id="auth-email-login"
+                class="auth-key-input"
+                placeholder="developer@company.com"
+                style="text-align: left; padding: 0 16px;"
+                autocomplete="email"
+              >
+            </div>
+            <div class="auth-input-wrap">
+              <input
+                type="password"
+                id="auth-password-login"
+                class="auth-key-input"
+                placeholder="Password"
+                style="text-align: left; padding: 0 16px;"
+                autocomplete="current-password"
+              >
+            </div>
+            <p class="auth-error" id="auth-error-msg" style="color: #f43f5e; font-size: 0.8rem; margin-top: 6px; min-height: 1.2rem; text-align: center;"></p>
+            <button class="btn btn-primary auth-submit-btn" id="auth-submit-btn" style="width: 100%; justify-content: center; margin-top: 10px;">
+              <i data-lucide="unlock" style="width:1rem;height:1rem;margin-right:6px;"></i> Sign In
+            </button>
+          </div>
+
+          <!-- Onboard Pane -->
+          <div id="pane-onboard" class="auth-pane" style="display: none;">
+            <p class="auth-subtitle" style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 15px; line-height: 1.4;">Create a free tenant organization and get a programmatic API Key.</p>
+            <div class="auth-input-wrap" style="margin-bottom: 10px;">
+              <input
+                type="email"
+                id="auth-email-signup"
+                class="auth-key-input"
+                placeholder="developer@company.com"
+                style="text-align: left; padding: 0 16px;"
+                autocomplete="email"
+              >
+            </div>
+            <div class="auth-input-wrap" style="margin-bottom: 10px;">
+              <input
+                type="password"
+                id="auth-password-signup"
+                class="auth-key-input"
+                placeholder="Choose Password (min 6 chars)"
+                style="text-align: left; padding: 0 16px;"
+                autocomplete="new-password"
+              >
+            </div>
+            
+            <!-- Credential Display (hidden initially) -->
+            <div id="auth-creds-display" style="display: none; margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; text-align: left;">
+              <span style="font-size: 0.75rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;">Copy Your API Key:</span>
+              <div style="display: flex; gap: 8px; margin-top: 5px; align-items: center;">
+                <code id="auth-new-key-val" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #10b981; word-break: break-all; user-select: all; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; background: rgba(0,0,0,0.2);"></code>
+                <button type="button" id="btn-copy-new-key" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 8px; cursor: pointer; color: #fff; display: flex; align-items: center; justify-content: center;"><i data-lucide="copy" style="width: 0.9rem; height: 0.9rem;"></i></button>
+              </div>
+              <p style="font-size: 0.7rem; color: #f43f5e; margin-top: 8px; line-height: 1.3;">⚠️ Save this key safely! It will not be shown again.</p>
+            </div>
+            
+            <p class="auth-error" id="onboard-error-msg" style="color: #f43f5e; font-size: 0.8rem; margin-top: 6px; min-height: 1.2rem; text-align: center;"></p>
+            <button class="btn btn-primary auth-submit-btn" id="auth-onboard-btn" style="width: 100%; justify-content: center; margin-top: 10px;">
+              <i data-lucide="user-plus" style="width:1rem;height:1rem;margin-right:6px;"></i> Create Free Account
+            </button>
+          </div>
+          
+          <p class="auth-hint" style="margin-top: 15px; font-size: 0.75rem; color: rgba(255,255,255,0.4); text-align: center;">Keys are cached in your browser session for security.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspector Modal -->
+    <div class="modal" id="modal-inspector">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Delivery Transaction Record</h3>
+          <button class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="inspector-body">
+          <!-- Populated Dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Redrive Modal -->
+    <div class="modal" id="modal-bulk-redrive">
+      <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+          <h3>Bulk Redrive Failed Events</h3>
+          <button class="modal-close" id="bulk-redrive-close-btn">&times;</button>
+        </div>
+        <form id="form-bulk-redrive" class="modal-body" style="gap: 1.25rem;">
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 5px;">
+            Redrive multiple failed delivery attempts matching the filters below. Replays will run through the engine with standard backoffs.
+          </p>
+          <div class="form-group">
+            <label for="bulk-redrive-endpoint">Target Endpoint</label>
+            <select id="bulk-redrive-endpoint">
+              <option value="">All Endpoints</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="bulk-redrive-status">Failure Type</label>
+            <select id="bulk-redrive-status">
+              <option value="">All Unsuccessful (Failed, Error, Rate Limited, Circuit Open)</option>
+              <option value="failed">HTTP Failure (4xx/5xx)</option>
+              <option value="error">Network/Connection Errors</option>
+              <option value="rate_limited">Rate Limited</option>
+              <option value="circuit_open">Blocked by Circuit Breaker</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="bulk-redrive-range">Time Window</label>
+            <select id="bulk-redrive-range">
+              <option value="all">All Historical Logs</option>
+              <option value="15m">Last 15 Minutes</option>
+              <option value="1h">Last 1 Hour</option>
+              <option value="4h">Last 4 Hours</option>
+              <option value="24h">Last 24 Hours</option>
+              <option value="custom">Custom Time Range...</option>
+            </select>
+          </div>
+          <div id="bulk-redrive-custom-dates" class="form-row-2" style="display: none;">
+            <div class="form-group">
+              <label for="bulk-redrive-since">Start Date/Time</label>
+              <input type="datetime-local" id="bulk-redrive-since">
+            </div>
+            <div class="form-group">
+              <label for="bulk-redrive-before">End Date/Time</label>
+              <input type="datetime-local" id="bulk-redrive-before">
+            </div>
+          </div>
+          <div id="bulk-redrive-matched-info" style="font-size: 0.8rem; color: var(--purple); font-weight: 500; min-height: 1.25rem;">
+            <!-- Dynamic match info -->
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-trigger-bulk-redrive" style="width: 100%;">
+            <i data-lucide="refresh-cw"></i> Trigger Bulk Redrive
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>WebhookEngine Console &copy; 2026. Custom crafted premium SaaS dashboard.</p>
+    </footer>
+  </div>
+
+  <script src="canvas.js"></script>
+  <script src="auth.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // Load Lucide Icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>

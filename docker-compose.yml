@@ -1,0 +1,69 @@
+services:
+  # ── Redis — shared state store ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: webhook-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── PostgreSQL — relational store ───────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: webhook-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── WebhookEngine ────────────────────────────────────────────────────────────
+  webhook-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webhook-engine
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      STORAGE_TYPE: redis
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+      # Secrets — override these via a .env file or CI/CD secrets manager:
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      API_KEY_HASH: ${API_KEY_HASH}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/system/info"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  redis_data:
+  postgres_data:
