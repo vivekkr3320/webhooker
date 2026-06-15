@@ -29,7 +29,11 @@
       const logoutBtn = document.getElementById('btn-logout');
       if (logoutBtn) logoutBtn.style.display = 'none';
       
-      showAuthModal('Your session has expired. Please sign in again.');
+      const modal = document.getElementById('modal-auth');
+      const isModalActive = modal && modal.classList.contains('active');
+      if (!isModalActive) {
+        showAuthModal('Your session has expired. Please sign in again.');
+      }
       throw new Error('Unauthorized — session expired');
     }
 
@@ -108,6 +112,7 @@
         if (typeof fetchEndpoints === 'function') fetchEndpoints();
         if (typeof pollDashboard  === 'function') pollDashboard();
         if (typeof loadSecurityPanel === 'function') loadSecurityPanel();
+        if (typeof loadAlertSettings === 'function') loadAlertSettings();
       } else {
         if (errEl) errEl.textContent = data.error || 'Invalid email or password.';
         shakeModal();
@@ -137,6 +142,7 @@
       if (typeof fetchEndpoints === 'function') fetchEndpoints();
       if (typeof pollDashboard  === 'function') pollDashboard();
       if (typeof loadSecurityPanel === 'function') loadSecurityPanel();
+      if (typeof loadAlertSettings === 'function') loadAlertSettings();
       return;
     }
 
@@ -213,6 +219,7 @@
         if (typeof fetchEndpoints === 'function') fetchEndpoints();
         if (typeof pollDashboard  === 'function') pollDashboard();
         if (typeof loadSecurityPanel === 'function') loadSecurityPanel();
+        if (typeof loadAlertSettings === 'function') loadAlertSettings();
         return;
       }
     } catch (err) {

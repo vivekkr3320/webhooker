@@ -114,16 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Load first fetch and trigger polling loop
-  fetchEndpoints();
-  pollDashboard();
+  // Start polling loop (runs safely in background, returning early if auth modal is active)
   pollingTimer = setInterval(pollDashboard, 1500);
-
-  // Load Security Panel info
-  loadSecurityPanel();
-
-  // Load Alert Settings & Bind Listeners
-  loadAlertSettings();
   const alertForm = document.getElementById('form-alert-settings');
   if (alertForm) alertForm.addEventListener('submit', handleSaveAlertSettings);
   const alertTestBtn = document.getElementById('btn-test-alerts');
@@ -671,6 +663,10 @@ function renderEndpointsList(endpoints) {
 }
 
 async function pollDashboard() {
+  const modal = document.getElementById('modal-auth');
+  if (modal && modal.classList.contains('active')) {
+    return;
+  }
   try {
     // 1. Fetch Stats
     const statsRes = await apiFetch('/api/stats');
