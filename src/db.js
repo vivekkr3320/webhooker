@@ -110,5 +110,9 @@ module.exports = {
   updateDelivery:  (orgId, id, fields) => getAdapter().updateDelivery(orgId, id, fields),
   clearDeliveries: (orgId) => getAdapter().clearDeliveries(orgId),
 
+  // Scoped consumer logs
+  addWebhookLog:  (orgId, logEntry) => getAdapter().addWebhookLog(orgId, logEntry),
+  getWebhookLogs: (orgId) => getAdapter().getWebhookLogs(orgId),
+
   maskSensitiveHeaders,
 };

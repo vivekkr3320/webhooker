@@ -683,10 +683,109 @@ async function pollDashboard() {
     const logs = await logsRes.json();
     logsDatabase = logs; 
     updateLogsStream(logs);
+
+    // 4. Fetch Consumer Logs
+    await pollConsumerLogs();
   } catch (err) {
     console.error('Polling error:', err);
   }
 }
+
+async function pollConsumerLogs() {
+  try {
+    const res = await apiFetch('/api/webhook-logs');
+    if (!res.ok) return;
+    const logs = await res.json();
+    renderConsumerLogs(logs);
+  } catch (err) {
+    console.error('Error fetching consumer logs:', err);
+  }
+}
+
+function renderConsumerLogs(logs) {
+  const tbody = document.getElementById('consumer-logs-body');
+  if (!tbody) return;
+
+  if (logs.length === 0) {
+    tbody.innerHTML = `
+      <tr class="empty-row">
+        <td colspan="6">
+          <div class="empty-state">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.5; margin-bottom: 8px;"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/><line x1="5" y1="9" x2="5.01" y2="9"/><line x1="5" y1="13" x2="5.01" y2="13"/><line x1="5" y1="17" x2="5.01" y2="17"/></svg>
+            <p>No logged consumer webhook dispatches found.</p>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  logs.forEach(log => {
+    const tr = document.createElement('tr');
+    
+    let badgeClass = 'badge-purple';
+    let statusText = log.status.toUpperCase();
+    if (log.status === 'delivered') {
+      badgeClass = 'badge-success';
+    } else if (log.status === 'failed' || log.status === 'error') {
+      badgeClass = 'badge-danger';
+    }
+
+    const codeText = log.statusCode ? `${log.statusCode}` : '—';
+    let codeBadge = `<span class="badge badge-purple">${codeText}</span>`;
+    if (log.statusCode && log.statusCode >= 200 && log.statusCode < 300) {
+      codeBadge = `<span class="badge badge-success">${codeText}</span>`;
+    } else if (log.statusCode) {
+      codeBadge = `<span class="badge badge-danger">${codeText}</span>`;
+    }
+
+    const tsFormatted = new Date(log.timestamp).toLocaleString();
+    const payloadId = `payload-toggle-${log.id}`;
+    
+    tr.innerHTML = `
+      <td><span class="badge ${badgeClass}">${statusText}</span></td>
+      <td>${codeBadge}</td>
+      <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--cyan); word-break: break-all;">${escapeHtml(log.url)}</td>
+      <td><span class="badge badge-purple">${escapeHtml(log.event)}</span></td>
+      <td style="font-size: 0.8rem; color: var(--text-secondary);">${tsFormatted}</td>
+      <td style="text-align: center;">
+        <button class="btn-text-action" onclick="togglePayloadView('${payloadId}')" style="padding: 4px 10px; font-size: 0.7rem;">
+          Inspect
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    // Create the expandable detail row
+    const detailTr = document.createElement('tr');
+    detailTr.id = payloadId;
+    detailTr.style.display = 'none';
+    detailTr.className = 'payload-detail-row';
+    
+    const escapedPayload = escapeHtml(JSON.stringify(log.payload, null, 2));
+    const errorText = log.error ? `<div style="color: var(--danger); font-weight: 600; margin-bottom: 8px;">Error Details: ${escapeHtml(log.error)}</div>` : '';
+    
+    detailTr.innerHTML = `
+      <td colspan="6" style="padding: 15px 25px; background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border-color);">
+        ${errorText}
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 5px; font-weight: 600; text-transform: uppercase;">Raw Payload:</div>
+        <pre style="font-family: var(--font-mono); font-size: 0.75rem; background: rgba(0,0,0,0.5); padding: 12px; border-radius: 6px; overflow-x: auto; color: #fff; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; max-height: 250px;">${escapedPayload}</pre>
+      </td>
+    `;
+    tbody.appendChild(detailTr);
+  });
+}
+
+window.togglePayloadView = function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'table-row';
+  } else {
+    el.style.display = 'none';
+  }
+};
 
 function updateStatsCards(stats) {
   document.getElementById('val-success-rate').textContent = `${stats.successRate}%`;

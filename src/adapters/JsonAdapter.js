@@ -30,7 +30,7 @@ class JsonAdapter {
   }
 
   _init() {
-    let raw = { endpoints: [], deliveries: [], organizations: [], apiKeys: [], sessions: [] };
+    let raw = { endpoints: [], deliveries: [], organizations: [], apiKeys: [], sessions: [], webhook_logs: [] };
     if (fs.existsSync(this.dbPath)) {
       try {
         const parsed = JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
@@ -239,6 +239,24 @@ class JsonAdapter {
   clearDeliveries(orgId) {
     const db = this._read();
     db.deliveries = db.deliveries.filter(d => d.orgId !== orgId);
+    this._write(db);
+  }
+
+  // ─── Consumer Webhook Event Logs (Svix-style) ──────────────────────────────
+
+  getWebhookLogs(orgId) {
+    const db = this._read();
+    if (!db.webhook_logs) db.webhook_logs = [];
+    return db.webhook_logs.filter(l => l.orgId === orgId) || [];
+  }
+
+  addWebhookLog(orgId, logEntry) {
+    const db = this._read();
+    if (!db.webhook_logs) db.webhook_logs = [];
+    db.webhook_logs.unshift({ ...logEntry, orgId });
+    if (db.webhook_logs.length > 200) {
+      db.webhook_logs = db.webhook_logs.slice(0, 200);
+    }
     this._write(db);
   }
 

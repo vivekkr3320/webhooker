@@ -145,7 +145,7 @@ class WebhookEngine extends EventEmitter {
       orgId,
       url,
       events:      opts.events      ?? ['*'],
-      secret:      opts.secret      ?? this.secret,
+      secret:      opts.secret      || ('whsec_' + crypto.randomBytes(24).toString('hex')),
       active:      opts.active      ?? true,
       headers:     opts.headers     ?? {},
       integration: opts.integration ?? 'standard',
@@ -312,12 +312,13 @@ class WebhookEngine extends EventEmitter {
 
   // ─── Signature helpers ────────────────────────────────────────────────────
 
-  sign(body, secret = this.secret) {
-    const ts     = Date.now();
-    const signed = crypto.createHmac('sha256', secret)
-                         .update(`${ts}.${body}`)
-                         .digest('hex');
-    return `t=${ts},v1=${signed}`;
+  sign(body, secret = this.secret, msg_id = '') {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signaturePayload = `${msg_id}.${timestamp}.${body}`;
+    const signature = crypto.createHmac('sha256', secret)
+                          .update(signaturePayload)
+                          .digest('hex');
+    return `t=${timestamp},v1=${signature}`;
   }
 
   verify(rawBody, signatureHeader, secret = this.secret, toleranceSec = 300) {
@@ -328,14 +329,21 @@ class WebhookEngine extends EventEmitter {
     const ts = parseInt(parts.t, 10);
     if (!ts) throw new Error('Invalid signature: missing timestamp');
 
-    const ageSec = (Date.now() - ts) / 1000;
-    if (ageSec > toleranceSec) {
+    const ageSec = (Date.now() / 1000) - ts;
+    if (Math.abs(ageSec) > toleranceSec) {
       throw new Error(`Webhook timestamp too old (${Math.round(ageSec)}s > ${toleranceSec}s)`);
     }
 
     const body    = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8');
+    let msg_id = '';
+    try {
+      const parsed = JSON.parse(body);
+      msg_id = parsed.id || '';
+    } catch (e) {}
+
+    const signaturePayload = `${msg_id}.${ts}.${body}`;
     const expect  = crypto.createHmac('sha256', secret)
-                          .update(`${ts}.${body}`)
+                          .update(signaturePayload)
                           .digest('hex');
     const received = parts.v1;
     if (!received) throw new Error('Invalid signature: missing v1');
@@ -397,6 +405,78 @@ class WebhookEngine extends EventEmitter {
 
     // Freeze the orgId at invocation time — prevents late-binding mutation
     const orgId = endpoint.orgId;
+
+    // ── SSRF / Loopback Protection ──────────────────────────────
+    let isBlocked = false;
+    let blockError = '';
+    try {
+      const parsedUrl = new URL(endpoint.url);
+      const hostname = parsedUrl.hostname;
+      if (hostname.toLowerCase() === 'localhost') {
+        isBlocked = true;
+        blockError = 'SSRF Blocked: Local hostnames are not allowed';
+      } else {
+        const dns = require('dns');
+        const ip = await new Promise((resolve, reject) => {
+          dns.lookup(hostname, (err, address) => {
+            if (err) return reject(new Error(`DNS resolution failed: ${err.message}`));
+            resolve(address);
+          });
+        });
+        if (isPrivateIp(ip)) {
+          isBlocked = true;
+          blockError = `SSRF Blocked: Private network ranges are not allowed (${ip})`;
+        }
+      }
+    } catch (err) {
+      isBlocked = true;
+      blockError = err.message;
+    }
+
+    if (isBlocked) {
+      // Deactivate the endpoint immediately
+      try {
+        endpoint.active = false;
+        await Promise.resolve(db.saveEndpoint(endpoint.orgId, endpoint));
+        this.endpoints.set(`${endpoint.orgId}:${endpoint.id}`, endpoint);
+        this.emit('endpoint:deactivated', { orgId: endpoint.orgId, id: endpoint.id, reason: blockError });
+      } catch (err) {
+        logger.error({ err: err.message }, 'Failed to save deactivated endpoint status on SSRF block');
+      }
+
+      const entry = {
+        id:         'del_' + crypto.randomBytes(8).toString('hex'),
+        endpointId: endpoint.id,
+        url:        endpoint.url,
+        event:      payload.event,
+        payloadId:  payload.id,
+        attempt,
+        timestamp:  new Date().toISOString(),
+        status:     'failed',
+        statusCode: null,
+        integration: endpoint.integration,
+        requestHeaders: maskSensitiveHeaders(endpoint.headers || {}),
+        error:      blockError,
+      };
+
+      db.addDelivery(endpoint.orgId, entry);
+      this.emit('delivery:failed', entry);
+
+      // Record to consumer webhook logs
+      await db.addWebhookLog(endpoint.orgId, {
+        id: 'log_' + crypto.randomBytes(8).toString('hex'),
+        endpointId: endpoint.id,
+        url: endpoint.url,
+        event: payload.event,
+        payload: payload.data || {},
+        statusCode: null,
+        timestamp: entry.timestamp,
+        status: 'failed',
+        error: blockError
+      });
+
+      return entry;
+    }
 
     // ── Circuit Breaker guard ─────────────────────────────────────
     const circuit = await this._getCircuit(endpoint.id);
@@ -514,7 +594,7 @@ class WebhookEngine extends EventEmitter {
       body = JSON.stringify(formatDiscordPayload(finalPayload));
     } else {
       body      = JSON.stringify(finalPayload);
-      signature = this.sign(body, endpoint.secret);
+      signature = this.sign(body, endpoint.secret, finalPayload.id);
     }
 
     const entry = {
@@ -554,6 +634,19 @@ class WebhookEngine extends EventEmitter {
         // Success → reset circuit breaker
         await this._circuitSuccess(endpoint.id);
 
+        // Save to consumer webhook logs
+        await db.addWebhookLog(endpoint.orgId, {
+          id: 'log_' + crypto.randomBytes(8).toString('hex'),
+          endpointId: endpoint.id,
+          url: endpoint.url,
+          event: entry.event,
+          payload: entry.replayData || {},
+          statusCode: res.statusCode,
+          timestamp: new Date().toISOString(),
+          status: 'delivered',
+          error: null
+        });
+
         // Increment monthly usage count for the organization
         try {
           const org = await db.getOrganization(endpoint.orgId);
@@ -571,6 +664,20 @@ class WebhookEngine extends EventEmitter {
         // Failure → record for circuit breaker
         await this._circuitFailure(endpoint.id, endpoint, `HTTP status code ${updates.statusCode}`, payload.event);
         logger.warn({ endpointId: endpoint.id, attempt, statusCode: updates.statusCode }, 'delivery:failed');
+
+        // Save to consumer webhook logs
+        await db.addWebhookLog(endpoint.orgId, {
+          id: 'log_' + crypto.randomBytes(8).toString('hex'),
+          endpointId: endpoint.id,
+          url: endpoint.url,
+          event: entry.event,
+          payload: entry.replayData || {},
+          statusCode: res.statusCode,
+          timestamp: new Date().toISOString(),
+          status: 'failed',
+          error: updates.responseBody || 'Failed'
+        });
+
         if (attempt <= this.maxRetries) this._scheduleRetry(endpoint, payload, attempt);
       }
       return { ...entry, ...updates };
@@ -583,6 +690,20 @@ class WebhookEngine extends EventEmitter {
       this.emit('delivery:error', { ...entry, ...updates });
       await this._circuitFailure(endpoint.id, endpoint, err.message, payload.event);
       logger.error({ endpointId: endpoint.id, attempt, err: err.message }, 'delivery:error');
+
+      // Save to consumer webhook logs
+      await db.addWebhookLog(endpoint.orgId, {
+        id: 'log_' + crypto.randomBytes(8).toString('hex'),
+        endpointId: endpoint.id,
+        url: endpoint.url,
+        event: entry.event,
+        payload: entry.replayData || {},
+        statusCode: null,
+        timestamp: new Date().toISOString(),
+        status: 'error',
+        error: err.message
+      });
+
       if (attempt <= this.maxRetries) this._scheduleRetry(endpoint, payload, attempt);
       return { ...entry, ...updates };
     }
@@ -722,7 +843,9 @@ class WebhookEngine extends EventEmitter {
     return false;
   }
   _scheduleRetry(endpoint, payload, attempt) {
-    const delaySec = this.retryDelays[attempt - 1] ?? 900;
+    const baseDelay = 5;
+    const randomJitter = Math.floor(Math.random() * 5); // 0 to 4 seconds of jitter
+    const delaySec = (baseDelay * Math.pow(2, attempt)) + randomJitter;
     const frozenOrgId = endpoint.orgId;
     const frozenEndpointId = endpoint.id;
     const executeAtTimestamp = Date.now() + delaySec * 1000;
@@ -899,3 +1022,28 @@ function formatDiscordPayload(payload) {
 }
 
 module.exports = WebhookEngine;
+
+// ─── Private IP checker for SSRF protection ──────────────────────────────
+function isPrivateIp(ip) {
+  if (!ip) return true;
+  let cleanIp = ip;
+  if (ip.startsWith('::ffff:')) {
+    cleanIp = ip.slice(7);
+  }
+  const ipv4Pattern = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/;
+  const match = cleanIp.match(ipv4Pattern);
+  if (match) {
+    const octet1 = parseInt(match[1], 10);
+    const octet2 = parseInt(match[2], 10);
+    if (octet1 === 127) return true; // loopback
+    if (octet1 === 10) return true; // class A private
+    if (octet1 === 172 && (octet2 >= 16 && octet2 <= 31)) return true; // class B private
+    if (octet1 === 192 && octet2 === 168) return true; // class C private
+    if (octet1 === 169 && octet2 === 254) return true; // link-local
+    if (octet1 === 0) return true;
+  }
+  if (cleanIp === '::1' || cleanIp === '::' || cleanIp.startsWith('fe80:') || cleanIp.startsWith('fc00:') || cleanIp.startsWith('fd00:')) {
+    return true;
+  }
+  return false;
+}

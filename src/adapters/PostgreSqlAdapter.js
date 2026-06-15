@@ -233,6 +233,49 @@ class PostgreSqlAdapter {
     await this.query('DELETE FROM deliveries WHERE "orgId" = $1', [orgId]);
   }
 
+  // ─── Consumer Webhook Event Logs (Svix-style) ──────────────────────────────
+
+  async getWebhookLogs(orgId) {
+    const res = await this.query(
+      'SELECT * FROM webhook_logs WHERE "orgId" = $1 ORDER BY timestamp DESC LIMIT 100',
+      [orgId]
+    );
+    return res.rows;
+  }
+
+  async addWebhookLog(orgId, logEntry) {
+    await this.query(
+      `INSERT INTO webhook_logs (
+        id, "orgId", "endpointId", url, event, payload, "statusCode", timestamp, status, error
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        logEntry.id,
+        orgId,
+        logEntry.endpointId,
+        logEntry.url,
+        logEntry.event,
+        JSON.stringify(logEntry.payload || {}),
+        logEntry.statusCode,
+        logEntry.timestamp,
+        logEntry.status,
+        logEntry.error
+      ]
+    );
+
+    // Limit to 200 logs per org to conserve space
+    await this.query(
+      `DELETE FROM webhook_logs 
+       WHERE "orgId" = $1 
+         AND id NOT IN (
+           SELECT id FROM webhook_logs 
+           WHERE "orgId" = $1 
+           ORDER BY timestamp DESC 
+           LIMIT 200
+         )`,
+      [orgId]
+    );
+  }
+
   async getOrganizationByEmail(email) {
     const res = await this.query('SELECT * FROM organizations WHERE "ownerEmail" = $1', [email]);
     return res.rows[0] || null;

@@ -52,8 +52,23 @@ CREATE TABLE IF NOT EXISTS deliveries (
   attempt INTEGER NOT NULL,
   timestamp VARCHAR(255) NOT NULL,
   status VARCHAR(50) NOT NULL,
+  "statusCode" INTEGER,
   "responseTime" INTEGER,
   "responseBody" TEXT,
+  error TEXT
+);
+
+-- 5b. Webhook Logs (Consumer dashboard event logs)
+CREATE TABLE IF NOT EXISTS webhook_logs (
+  id VARCHAR(255) PRIMARY KEY,
+  "orgId" VARCHAR(255) REFERENCES organizations(id) ON DELETE CASCADE,
+  "endpointId" VARCHAR(255),
+  url TEXT NOT NULL,
+  event VARCHAR(255) NOT NULL,
+  payload JSONB NOT NULL,
+  "statusCode" INTEGER,
+  timestamp VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL,
   error TEXT
 );
 

@@ -288,6 +288,16 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+// Get Consumer Webhook Logs (Svix-style)
+app.get('/api/webhook-logs', async (req, res) => {
+  try {
+    const logs = await Promise.resolve(db.getWebhookLogs(req.orgId));
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Clear Delivery Logs
 app.post('/api/logs/clear', (req, res) => {
   db.clearDeliveries(req.orgId);
