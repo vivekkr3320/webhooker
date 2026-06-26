@@ -968,7 +968,7 @@ function renderEndpointsList(endpoints) {
 }
 
 async function pollDashboard() {
-  if (window._sandboxMode) return;
+  if (window._sandboxMode || !window._authToken) return;
   const modal = document.getElementById('modal-auth');
   if (modal && modal.classList.contains('active')) {
     return;
@@ -998,6 +998,7 @@ async function pollDashboard() {
 }
 
 async function pollConsumerLogs() {
+  if (window._sandboxMode || !window._authToken) return;
   try {
     const res = await apiFetch('/api/webhook-logs');
     if (!res.ok) return;

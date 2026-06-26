@@ -33,6 +33,7 @@
     const res = await fetch(url, { ...options, headers });
 
     if (res.status === 401) {
+      window._authToken = null;
       // Session cookie or API key rejected — force re-auth
       _apiKey = '';
       sessionStorage.removeItem(SESSION_KEY);
@@ -115,6 +116,7 @@
 
       const data = await res.json();
       if (res.ok && data.success) {
+        window._authToken = data.apiKey || 'session_active';
         hideAuthModal();
         const logoutBtn = document.getElementById('btn-logout');
         if (logoutBtn) logoutBtn.style.display = 'flex';
@@ -148,6 +150,7 @@
 
     if (generatedKey) {
       // Key was already generated, user clicked "Continue to Dashboard"
+      window._authToken = generatedKey || 'session_active';
       hideAuthModal();
       const logoutBtn = document.getElementById('btn-logout');
       if (logoutBtn) logoutBtn.style.display = 'flex';
@@ -229,6 +232,7 @@
       const res = await fetch('/api/auth/me');
       if (res.ok && res.status === 200) {
         const data = await res.json();
+        window._authToken = data.apiKey || 'session_active';
         // Automatically bypass lock modal if session is active
         hideAuthModal();
         const logoutBtn = document.getElementById('btn-logout');
@@ -246,6 +250,7 @@
       // not logged in or network issue
     }
 
+    window._authToken = null;
     showAuthModal();
   }
 
@@ -280,6 +285,7 @@
 
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async () => {
+        window._authToken = null;
         try {
           await fetch('/api/auth/logout', { method: 'POST' });
         } catch (err) {}
