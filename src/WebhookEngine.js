@@ -28,8 +28,10 @@ class WebhookEngine extends EventEmitter {
     super();
     this.secret      = opts.secret      ?? crypto.randomBytes(32).toString('hex');
     this.maxRetries  = opts.maxRetries  ?? 5;
+    this._customRetryDelays = opts.retryDelays;
     this.retryDelays = opts.retryDelays ?? [10, 30, 60, 300, 900];
     this.timeout     = opts.timeout     ?? 30_000;
+    this.allowLoopback = opts.allowLoopback ?? (process.env.ALLOW_LOOPBACK === 'true');
 
     this.endpoints    = new Map();   // id → endpoint object
     this._retryQueue  = new Map();   // key → { timer, meta }
@@ -409,28 +411,30 @@ class WebhookEngine extends EventEmitter {
     // ── SSRF / Loopback Protection ──────────────────────────────
     let isBlocked = false;
     let blockError = '';
-    try {
-      const parsedUrl = new URL(endpoint.url);
-      const hostname = parsedUrl.hostname;
-      if (hostname.toLowerCase() === 'localhost') {
-        isBlocked = true;
-        blockError = 'SSRF Blocked: Local hostnames are not allowed';
-      } else {
-        const dns = require('dns');
-        const ip = await new Promise((resolve, reject) => {
-          dns.lookup(hostname, (err, address) => {
-            if (err) return reject(new Error(`DNS resolution failed: ${err.message}`));
-            resolve(address);
-          });
-        });
-        if (isPrivateIp(ip)) {
+    if (!this.allowLoopback) {
+      try {
+        const parsedUrl = new URL(endpoint.url);
+        const hostname = parsedUrl.hostname;
+        if (hostname.toLowerCase() === 'localhost') {
           isBlocked = true;
-          blockError = `SSRF Blocked: Private network ranges are not allowed (${ip})`;
+          blockError = 'SSRF Blocked: Local hostnames are not allowed';
+        } else {
+          const dns = require('dns');
+          const ip = await new Promise((resolve, reject) => {
+            dns.lookup(hostname, (err, address) => {
+              if (err) return reject(new Error(`DNS resolution failed: ${err.message}`));
+              resolve(address);
+            });
+          });
+          if (isPrivateIp(ip)) {
+            isBlocked = true;
+            blockError = `SSRF Blocked: Private network ranges are not allowed (${ip})`;
+          }
         }
+      } catch (err) {
+        isBlocked = true;
+        blockError = err.message;
       }
-    } catch (err) {
-      isBlocked = true;
-      blockError = err.message;
     }
 
     if (isBlocked) {
@@ -843,9 +847,14 @@ class WebhookEngine extends EventEmitter {
     return false;
   }
   _scheduleRetry(endpoint, payload, attempt) {
-    const baseDelay = 5;
-    const randomJitter = Math.floor(Math.random() * 5); // 0 to 4 seconds of jitter
-    const delaySec = (baseDelay * Math.pow(2, attempt)) + randomJitter;
+    let delaySec;
+    if (this._customRetryDelays && this._customRetryDelays[attempt - 1] !== undefined) {
+      delaySec = this._customRetryDelays[attempt - 1];
+    } else {
+      const baseDelay = 5;
+      const randomJitter = Math.floor(Math.random() * 5); // 0 to 4 seconds of jitter
+      delaySec = (baseDelay * Math.pow(2, attempt)) + randomJitter;
+    }
     const frozenOrgId = endpoint.orgId;
     const frozenEndpointId = endpoint.id;
     const executeAtTimestamp = Date.now() + delaySec * 1000;

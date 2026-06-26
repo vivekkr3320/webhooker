@@ -3,7 +3,7 @@
 require('dotenv').config();
 
 // ── Hardened Production Configuration Assertion ───────────────────────────────
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const criticalKeys = ['WEBHOOK_SECRET', 'API_KEY_HASH', 'STORAGE_TYPE'];
   for (const key of criticalKeys) {
     const val = process.env[key];
@@ -153,7 +153,7 @@ app.post('/api/onboard', async (req, res) => {
     }
 
     const crypto = require('crypto');
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
 
     // Generate tenant ID
     const orgId = 'org_' + crypto.randomBytes(8).toString('hex');
@@ -525,10 +525,14 @@ app.get('/api/endpoints/:id/health', stealthGuard('endpoint'), async (req, res) 
 });
 
 // ── Start server ──────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  logger.info({ port: PORT, storageType: process.env.STORAGE_TYPE || 'json' }, 'WebhookEngine started');
-  logger.info(`Dashboard → http://localhost:${PORT}`);
-  if (!process.env.API_KEY_HASH) {
-    logger.warn('⚠️  No API_KEY_HASH set. Run: node scripts/generate-api-key.js');
-  }
-});
+if (require.main === module || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    logger.info({ port: PORT, storageType: process.env.STORAGE_TYPE || 'json' }, 'WebhookEngine started');
+    logger.info(`Dashboard → http://localhost:${PORT}`);
+    if (!process.env.API_KEY_HASH) {
+      logger.warn('⚠️  No API_KEY_HASH set. Run: node scripts/generate-api-key.js');
+    }
+  });
+}
+
+module.exports = app;

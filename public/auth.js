@@ -14,6 +14,17 @@
   let _apiKey = sessionStorage.getItem(SESSION_KEY) || '';
   let generatedKey = '';
 
+  function updateAdminUI(email) {
+    const billingSim = document.getElementById('billing-simulator-panel');
+    if (billingSim) {
+      if (email === 'admin@localhost') {
+        billingSim.style.display = 'block';
+      } else {
+        billingSim.style.display = 'none';
+      }
+    }
+  }
+
   // ── Public apiFetch wrapper ─────────────────────────────────────────────────
   window.apiFetch = async function (url, options = {}) {
     const headers = { ...(options.headers || {}) };
@@ -108,6 +119,8 @@
         const logoutBtn = document.getElementById('btn-logout');
         if (logoutBtn) logoutBtn.style.display = 'flex';
         
+        updateAdminUI(data.email);
+
         // Trigger dashboard reload
         if (typeof fetchEndpoints === 'function') fetchEndpoints();
         if (typeof pollDashboard  === 'function') pollDashboard();
@@ -138,6 +151,10 @@
       hideAuthModal();
       const logoutBtn = document.getElementById('btn-logout');
       if (logoutBtn) logoutBtn.style.display = 'flex';
+      
+      const emailInput = document.getElementById('auth-email-signup');
+      const email = emailInput ? emailInput.value.trim() : '';
+      updateAdminUI(email);
       
       if (typeof fetchEndpoints === 'function') fetchEndpoints();
       if (typeof pollDashboard  === 'function') pollDashboard();
@@ -211,10 +228,13 @@
     try {
       const res = await fetch('/api/auth/me');
       if (res.ok && res.status === 200) {
+        const data = await res.json();
         // Automatically bypass lock modal if session is active
         hideAuthModal();
         const logoutBtn = document.getElementById('btn-logout');
         if (logoutBtn) logoutBtn.style.display = 'flex';
+        
+        updateAdminUI(data.email);
         
         if (typeof fetchEndpoints === 'function') fetchEndpoints();
         if (typeof pollDashboard  === 'function') pollDashboard();

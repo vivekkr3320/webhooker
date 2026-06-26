@@ -84,14 +84,20 @@ function verifySignature(secret, tolerance, headerName) {
       const ts = parseInt(parts.t, 10);
       if (!ts) throw new Error('Invalid signature: missing timestamp');
 
-      const ageSec = (Date.now() - ts) / 1000;
-      if (ageSec > tolerance) {
+      const ageSec = (Date.now() / 1000) - ts;
+      if (Math.abs(ageSec) > tolerance) {
         throw new Error(`Webhook timestamp too old (${Math.round(ageSec)}s)`);
       }
 
+      let msg_id = '';
+      try {
+        const parsed = JSON.parse(rawBody);
+        msg_id = parsed.id || '';
+      } catch (e) {}
+
       const expected = crypto
         .createHmac('sha256', secret)
-        .update(`${ts}.${rawBody}`)
+        .update(`${msg_id}.${ts}.${rawBody}`)
         .digest('hex');
 
       const received = parts.v1;
@@ -107,7 +113,7 @@ function verifySignature(secret, tolerance, headerName) {
       // Attach verified payload to request
       try {
         req.webhook = JSON.parse(rawBody);
-      } catch {
+      } catch (nextErr) {
         req.webhook = { raw: rawBody };
       }
 

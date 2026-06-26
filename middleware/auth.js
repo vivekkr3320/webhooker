@@ -1,6 +1,6 @@
 'use strict';
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const db     = require('../src/db');
 const logger = require('../src/logger');
 
@@ -25,7 +25,6 @@ const PUBLIC_PATHS = new Set([
   '/api/system/info',
   '/api/onboard',
   '/api/billing/razorpay',
-  '/api/billing/simulate',
   '/api/auth/signup',
   '/api/auth/login',
   '/api/auth/logout',

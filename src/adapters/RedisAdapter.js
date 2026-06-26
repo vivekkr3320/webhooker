@@ -95,7 +95,7 @@ class RedisAdapter {
     }
 
     // 2. Fallback to process.env.API_KEY_HASH
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     if (process.env.API_KEY_HASH && await bcrypt.compare(apiKey, process.env.API_KEY_HASH)) {
       const record = {
         pubId,

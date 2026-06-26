@@ -23,21 +23,48 @@ const path = require('path');
 
 class JsonAdapter {
   constructor(dbPath) {
-    this.dbPath = dbPath || path.join(__dirname, '..', '..', 'database.json');
-    this._init();
+    // On Vercel (serverless), the project directory is read-only.
+    // Use /tmp for writable storage, seeding from the bundled database.json if it exists.
+    const isVercel = !!process.env.VERCEL;
+    const defaultPath = path.join(__dirname, '..', '..', 'database.json');
+
+    if (dbPath) {
+      this.dbPath = dbPath;
+    } else if (isVercel) {
+      this.dbPath = '/tmp/database.json';
+    } else {
+      this.dbPath = defaultPath;
+    }
+
+    // On Vercel, seed /tmp/database.json from the bundled read-only copy on first cold start
+    if (isVercel && !fs.existsSync(this.dbPath) && fs.existsSync(defaultPath)) {
+      try {
+        fs.copyFileSync(defaultPath, this.dbPath);
+      } catch {
+        // If even /tmp fails, we'll use pure in-memory below
+      }
+    }
+
+    this._memDb = null; // Pure in-memory fallback
+    this._fsAvailable = true;
     this._inMemActiveQueue = [];
     this._inMemDelayedQueue = [];
+    this._init();
   }
 
   _init() {
     let raw = { endpoints: [], deliveries: [], organizations: [], apiKeys: [], sessions: [], webhook_logs: [] };
-    if (fs.existsSync(this.dbPath)) {
+
+    // Try reading from filesystem
+    if (this._fsAvailable && fs.existsSync(this.dbPath)) {
       try {
         const parsed = JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
         raw = { ...raw, ...parsed };
       } catch {
-        // ignore and overwrite on write if corrupt
+        // ignore corrupt files
       }
+    } else if (this._memDb) {
+      return; // Already initialized in memory
     }
 
     let changed = false;
@@ -56,57 +83,63 @@ class JsonAdapter {
       }];
       changed = true;
     }
-    if (!raw.apiKeys) {
-      raw.apiKeys = [];
-      changed = true;
-    }
-    if (!raw.endpoints) {
-      raw.endpoints = [];
-      changed = true;
-    }
-    if (!raw.deliveries) {
-      raw.deliveries = [];
-      changed = true;
-    }
-    if (!raw.sessions) {
-      raw.sessions = [];
-      changed = true;
-    }
+    if (!raw.apiKeys) { raw.apiKeys = []; changed = true; }
+    if (!raw.endpoints) { raw.endpoints = []; changed = true; }
+    if (!raw.deliveries) { raw.deliveries = []; changed = true; }
+    if (!raw.sessions) { raw.sessions = []; changed = true; }
+    if (!raw.webhook_logs) { raw.webhook_logs = []; changed = true; }
 
     // Migration of legacy un-scoped items
     raw.endpoints.forEach(e => {
-      if (!e.orgId) {
-        e.orgId = "org_dev_default";
-        changed = true;
-      }
+      if (!e.orgId) { e.orgId = "org_dev_default"; changed = true; }
     });
-
     raw.deliveries.forEach(d => {
-      if (!d.orgId) {
-        d.orgId = "org_dev_default";
-        changed = true;
-      }
+      if (!d.orgId) { d.orgId = "org_dev_default"; changed = true; }
     });
 
-    if (changed || !fs.existsSync(this.dbPath)) {
-      fs.writeFileSync(this.dbPath, JSON.stringify(raw, null, 2), 'utf8');
+    // Store in memory as the canonical copy
+    this._memDb = raw;
+
+    if (changed) {
+      this._write(raw);
     }
   }
 
   _read() {
+    // Always return the in-memory copy (avoids repeated disk I/O in serverless)
+    if (this._memDb) return this._memDb;
+
     try {
-      this._init();
-      return JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
+      if (this._fsAvailable && fs.existsSync(this.dbPath)) {
+        const parsed = JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
+        this._memDb = {
+          endpoints: [], deliveries: [], organizations: [],
+          apiKeys: [], sessions: [], webhook_logs: [],
+          ...parsed
+        };
+        return this._memDb;
+      }
     } catch {
-      return { endpoints: [], deliveries: [], organizations: [], apiKeys: [], sessions: [] };
+      // fall through to empty default
     }
+
+    this._memDb = { endpoints: [], deliveries: [], organizations: [], apiKeys: [], sessions: [], webhook_logs: [] };
+    return this._memDb;
   }
 
   _write(data) {
-    try {
-      fs.writeFileSync(this.dbPath, JSON.stringify(data, null, 2), 'utf8');
-    } catch (err) {
-      console.error('[JsonAdapter] Write error:', err);
+    // Always update in-memory copy
+    this._memDb = data;
+
+    // Best-effort persist to filesystem
+    if (this._fsAvailable) {
+      try {
+        fs.writeFileSync(this.dbPath, JSON.stringify(data, null, 2), 'utf8');
+      } catch (err) {
+        // Filesystem is read-only (Vercel, etc.) — continue in-memory only
+        this._fsAvailable = false;
+        console.warn('[JsonAdapter] Filesystem unavailable, running in-memory only:', err.message);
+      }
     }
   }
 
@@ -153,7 +186,7 @@ class JsonAdapter {
     }
 
     // Seamless fallback to process.env.API_KEY_HASH
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     if (process.env.API_KEY_HASH && bcrypt.compareSync(apiKey, process.env.API_KEY_HASH)) {
       db.apiKeys.push({
         pubId,

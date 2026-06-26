@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.ALLOW_LOOPBACK = 'true';
+
 const express = require('express');
 const { WebhookEngine, createReceiver } = require('./index');
 const db = require('./src/db');
@@ -34,7 +36,7 @@ const server = app.listen(PORT, async () => {
   }));
 
   // Register the test endpoint
-  engine.register('test-org', 'test-receiver', `http://localhost:${PORT}/webhook-endpoint`);
+  engine.register('test-org', 'test-receiver', `http://localhost:${PORT}/webhook-endpoint`, { secret: SECRET });
 
   try {
     // Send event

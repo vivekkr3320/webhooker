@@ -90,7 +90,7 @@ async function runTests() {
 
   // 3. Upgrade to active
   console.log('\n--- 3. Activating subscription via webhook simulation ---');
-  const activatedRes = await request('/api/billing/simulate', 'POST', {}, {
+  const activatedRes = await request('/api/billing/simulate', 'POST', { 'X-API-Key': apiKey }, {
     event: 'subscription.activated',
     subscriptionId: subscriptionId,
     planId: 'plan_pro_002'
@@ -141,7 +141,7 @@ async function runTests() {
 
   // 6. Simulate payment failure (subscription.halted)
   console.log('\n--- 6. Simulating subscription suspension (halted) ---');
-  const haltedRes = await request('/api/billing/simulate', 'POST', {}, {
+  const haltedRes = await request('/api/billing/simulate', 'POST', { 'X-API-Key': apiKey }, {
     event: 'subscription.halted',
     subscriptionId: subscriptionId,
     planId: 'plan_pro_002'

@@ -103,7 +103,7 @@ class PostgreSqlAdapter {
       return res.rows[0].orgId;
     }
 
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     if (process.env.API_KEY_HASH && await bcrypt.compare(apiKey, process.env.API_KEY_HASH)) {
       await this.query(
         `INSERT INTO "apiKeys" ("pubId", hash, "orgId", "createdAt") 

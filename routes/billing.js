@@ -202,6 +202,15 @@ router.post('/api/billing/checkout', async (req, res) => {
 // 3. Webhook Simulation Trigger
 router.post('/api/billing/simulate', async (req, res) => {
   try {
+    // In production/Vercel, restrict simulation to admin only
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+      const org = await db.getOrganization(req.orgId);
+      if (!org || org.ownerEmail !== 'admin@localhost') {
+        logger.warn({ orgId: req.orgId, email: org?.ownerEmail }, 'billing:simulation_rejected — non-admin access attempt');
+        return res.status(403).json({ error: 'Forbidden: Admin access only' });
+      }
+    }
+
     const { event, subscriptionId, planId } = req.body;
     if (!event || !subscriptionId) {
       return res.status(400).json({ error: 'Event topic and subscription ID are required' });

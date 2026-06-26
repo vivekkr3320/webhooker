@@ -1,7 +1,7 @@
 'use strict';
 
 const http = require('http');
-const fs = require('fs');
+const db = require('./src/db');
 const path = require('path');
 
 const PORT = process.env.PORT || 4000;
@@ -52,17 +52,15 @@ function request(method, path, body = null, headers = {}) {
   });
 }
 
-// Helper to manually update database.json organization stats for testing
-function setMockOrgUsage(orgId, count) {
-  const dbPath = path.join(__dirname, 'database.json');
-  const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-  const org = dbData.organizations.find(o => o.id === orgId);
+// Helper to manually update database organization stats for testing
+async function setMockOrgUsage(orgId, count) {
+  const org = await db.getOrganization(orgId);
   if (org) {
     org.monthlyUsageCount = count;
-    fs.writeFileSync(dbPath, JSON.stringify(dbData, null, 2), 'utf8');
+    await db.saveOrganization(orgId, org);
     console.log(`[MOCK] Artificially set org ${orgId} usage to ${count}`);
   } else {
-    throw new Error(`Org ${orgId} not found in database.json`);
+    throw new Error(`Org ${orgId} not found in database`);
   }
 }
 
@@ -109,7 +107,7 @@ async function runTests() {
 
     // 3. Set Mock Usage to 90% (Warning State)
     console.log('\n3. Incrementing usage mock to 4,500 requests (90% limit)...');
-    setMockOrgUsage(orgId, 4500);
+    await setMockOrgUsage(orgId, 4500);
 
     const usageRes2 = await request('GET', '/api/billing/usage', null, {
       'Cookie': sessionCookie
@@ -126,7 +124,7 @@ async function runTests() {
 
     // 4. Set Mock Usage to 100% (Exhausted State)
     console.log('\n4. Incrementing usage mock to 5,000 requests (100% limit)...');
-    setMockOrgUsage(orgId, 5000);
+    await setMockOrgUsage(orgId, 5000);
 
     const usageRes3 = await request('GET', '/api/billing/usage', null, {
       'Cookie': sessionCookie

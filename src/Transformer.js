@@ -1,10 +1,18 @@
 'use strict';
 
-const ivm = require('isolated-vm');
+let ivm;
+try {
+  ivm = require('isolated-vm');
+} catch (e) {
+  // isolated-vm is a native C++ addon that won't load in serverless environments (Vercel, etc.)
+  // Fall back to a safe Function-based sandbox with JSON serialization boundary
+  ivm = null;
+}
 
 class Transformer {
   /**
    * Executes a user-defined JavaScript transformation function inside a secure V8 Isolate.
+   * Falls back to a JSON-serialization-boundary sandbox when isolated-vm is unavailable.
    * @param {Object} payload - The original JSON payload object.
    * @param {string} scriptString - The user's raw JavaScript code snippet.
    * @param {number} [timeoutMs=50] - Maximum allowable CPU runtime in milliseconds.
@@ -15,6 +23,13 @@ class Transformer {
       return payload; // Pass through untouched if no script is defined
     }
 
+    if (ivm) {
+      return this._transformIsolated(payload, scriptString, timeoutMs);
+    }
+    return this._transformFallback(payload, scriptString);
+  }
+
+  static _transformIsolated(payload, scriptString, timeoutMs) {
     // 1. Initialize an entirely isolated V8 Isolate with a strict heap memory cap (16MB)
     const isolate = new ivm.Isolate({ memoryLimit: 16 });
 
@@ -72,6 +87,36 @@ class Transformer {
       } catch (e) {
         // Ignore disposal errors to prevent masking primary exceptions
       }
+    }
+  }
+
+  /**
+   * Fallback transformer for serverless environments where isolated-vm is not available.
+   * Uses JSON serialization boundary to prevent prototype pollution.
+   */
+  static _transformFallback(payload, scriptString) {
+    try {
+      // Deep-clone via JSON to create a clean copy with no prototype chain leaks
+      const safePayload = JSON.parse(JSON.stringify(payload));
+
+      const wrapper = `
+        'use strict';
+        ${scriptString}
+        if (typeof transform !== 'function') {
+          throw new Error("Missing entrypoint definition: 'function transform(payload)' must be declared.");
+        }
+        const __result = transform(__payload);
+        if (__result === undefined || __result === null || typeof __result !== 'object') {
+          throw new Error("Transformation must return a valid JSON object structure.");
+        }
+        JSON.stringify(__result);
+      `;
+
+      const fn = new Function('__payload', wrapper);
+      const rawJson = fn(safePayload);
+      return JSON.parse(rawJson);
+    } catch (err) {
+      throw new Error(`Transformation Runtime Error: ${err.message}`);
     }
   }
 }

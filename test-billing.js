@@ -83,7 +83,7 @@ async function runTests() {
 
   // Test 4: Simulate Razorpay subscription.activated webhook
   console.log('\n--- Test 4: Simulate subscription.activated Webhook ---');
-  const activatedRes = await request('/api/billing/simulate', 'POST', {}, {
+  const activatedRes = await request('/api/billing/simulate', 'POST', { 'X-API-Key': apiKey }, {
     event: 'subscription.activated',
     subscriptionId: subscriptionId,
     planId: 'plan_pro_002'
@@ -107,7 +107,7 @@ async function runTests() {
 
   // Test 5: Simulate subscription.halted webhook (payment decline)
   console.log('\n--- Test 5: Simulate subscription.halted Webhook ---');
-  const haltedRes = await request('/api/billing/simulate', 'POST', {}, {
+  const haltedRes = await request('/api/billing/simulate', 'POST', { 'X-API-Key': apiKey }, {
     event: 'subscription.halted',
     subscriptionId: subscriptionId,
     planId: 'plan_pro_002'
@@ -131,7 +131,7 @@ async function runTests() {
 
   // Test 6: Simulate subscription.cancelled webhook
   console.log('\n--- Test 6: Simulate subscription.cancelled Webhook ---');
-  const cancelledRes = await request('/api/billing/simulate', 'POST', {}, {
+  const cancelledRes = await request('/api/billing/simulate', 'POST', { 'X-API-Key': apiKey }, {
     event: 'subscription.cancelled',
     subscriptionId: subscriptionId,
     planId: 'plan_pro_002'
