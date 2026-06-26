@@ -1,3 +1,283 @@
+/* =============================================================
+   WEBHOOKENGINE — SANDBOX MODE
+   Try without signup — by UtilityOS
+   ============================================================= */
+
+const SANDBOX_DURATION_MS = 30 * 60 * 1000;
+
+const SANDBOX_DATA = {
+  stats: {
+    successRate:          98.4,
+    totalVolume:          1247,
+    activeDestinations:   3,
+    avgLatency:           142,
+    retryBacklog:         2,
+    planTier:             'Developer Free',
+    usageCurrent:         1247,
+    usageMax:             5000,
+    usagePct:             24.9,
+    resetDate: (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1, 0);
+      return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    })()
+  },
+  endpoints: [
+    {
+      name:   'stripe-payments',
+      url:    'https://api.yourdomain.com/webhooks/stripe',
+      events: ['payment.success', 'payment.failed', 'refund.created'],
+      rpm:    100
+    },
+    {
+      name:   'github-ci-pipeline',
+      url:    'https://api.yourdomain.com/webhooks/github',
+      events: ['push', 'pull_request', 'release'],
+      rpm:    60
+    },
+    {
+      name:   'razorpay-subscriptions',
+      url:    'https://api.yourdomain.com/webhooks/razorpay',
+      events: ['payment.captured', 'subscription.charged', 'subscription.halted'],
+      rpm:    50
+    }
+  ],
+  logs: [
+    { status:'delivered', dest:'stripe-payments',       topic:'payment.success',         attempt:1, latency:'138ms', code:200 },
+    { status:'delivered', dest:'github-ci-pipeline',    topic:'push',                    attempt:1, latency:'94ms',  code:200 },
+    { status:'retrying',  dest:'razorpay-subscriptions',topic:'payment.captured',        attempt:2, latency:'2103ms',code:503 },
+    { status:'delivered', dest:'stripe-payments',       topic:'payment.failed',          attempt:1, latency:'121ms', code:200 },
+    { status:'failed',    dest:'github-ci-pipeline',    topic:'pull_request',            attempt:3, latency:'5041ms',code:500 },
+    { status:'delivered', dest:'razorpay-subscriptions',topic:'subscription.charged',    attempt:1, latency:'109ms', code:200 },
+    { status:'delivered', dest:'stripe-payments',       topic:'refund.created',          attempt:1, latency:'144ms', code:200 },
+  ]
+};
+
+window._sandboxMode    = false;
+window._sandboxInterval = null;
+
+/* ---- Activate ---- */
+window.activateSandboxMode = function() {
+  window._sandboxMode = true;
+
+  // Push dashboard down so banner doesn't overlap
+  document.body.style.paddingTop = '42px';
+
+  // Show sandbox banner
+  const banner = document.getElementById('sandbox-banner');
+  if (banner) banner.style.display = 'flex';
+
+  // Hide auth modal
+  const modal = document.getElementById('modal-auth');
+  if (modal) modal.classList.remove('active');
+
+  // Load all demo data
+  _sbLoadStats();
+  _sbLoadEndpoints();
+  _sbLoadLogs();
+  _sbStartCountdown();
+
+  console.log('[WebhookEngine] Sandbox mode active');
+};
+
+/* ---- Stats ---- */
+function _sbLoadStats() {
+  const s = SANDBOX_DATA.stats;
+
+  // Stat cards — using YOUR exact IDs
+  _sbSet('val-success-rate',    s.successRate.toFixed(1) + '%');
+  _sbSet('val-total-deliveries', s.totalVolume.toLocaleString());
+  _sbSet('val-active-endpoints', s.activeDestinations);
+  _sbSet('val-avg-response',    s.avgLatency + ' ms');
+  _sbSet('val-pending-retries', s.retryBacklog);
+  _sbSet('val-plan-tier',       s.planTier);
+
+  // Success rate progress bar
+  const barSuccess = document.getElementById('bar-success-rate');
+  if (barSuccess) barSuccess.style.width = s.successRate + '%';
+
+  // Billing monitor card — YOUR exact IDs
+  const monitorCard = document.getElementById('billing-monitor-card');
+  if (monitorCard) monitorCard.style.display = 'block';
+  _sbSet('display-plan-tier',   s.planTier);
+  _sbSet('usage-current',       s.usageCurrent.toLocaleString());
+  _sbSet('usage-max',           s.usageMax.toLocaleString());
+  _sbSet('txt-quota-fraction',  s.usageCurrent.toLocaleString() + ' / ' + s.usageMax.toLocaleString() + ' dispatches consumed');
+  _sbSet('usage-reset-date',    s.resetDate);
+
+  const barQuota = document.getElementById('usage-progress-bar');
+  if (barQuota) barQuota.style.width = s.usagePct + '%';
+
+  // Hide warning banners — usage is healthy in demo
+  const alertBanner = document.getElementById('usage-alert-banner');
+  if (alertBanner) alertBanner.style.display = 'none';
+
+  // Badge
+  const badge = document.getElementById('badge-status');
+  if (badge) {
+    badge.textContent = 'Active';
+    badge.style.color = '#2ECC8C';
+  }
+}
+
+/* ---- Endpoints ---- */
+function _sbLoadEndpoints() {
+  const container = document.getElementById('endpoints-list');
+  if (!container) return;
+
+  _sbSet('endpoints-count', SANDBOX_DATA.endpoints.length);
+
+  container.innerHTML = SANDBOX_DATA.endpoints.map(ep => `
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:13px 16px;
+      border-bottom:1px solid #1E2130;
+      font-size:13px;
+      gap:12px;
+    ">
+      <div style="min-width:160px;">
+        <span style="color:#F0F2F7;font-weight:600;">${ep.name}</span>
+        <span style="
+          background:#0d2a1a;
+          color:#2ECC8C;
+          font-size:10px;
+          font-weight:700;
+          padding:2px 6px;
+          border-radius:3px;
+          margin-left:7px;
+          letter-spacing:0.04em;
+        ">ACTIVE</span>
+      </div>
+      <div style="color:#8B92A5;font-size:12px;font-family:'JetBrains Mono',monospace;flex:1;">${ep.url}</div>
+      <div style="color:#4B5267;font-size:11px;max-width:220px;text-align:right;">${ep.events.join(' · ')}</div>
+      <div style="color:#2E3347;font-size:11px;font-style:italic;min-width:80px;text-align:right;">Demo</div>
+    </div>
+  `).join('');
+}
+
+/* ---- Delivery Logs ---- */
+function _sbLoadLogs() {
+  const tbody = document.getElementById('logs-stream-body');
+  if (!tbody) return;
+
+  const colors = { delivered:'#2ECC8C', retrying:'#F5A623', failed:'#EF4444' };
+
+  tbody.innerHTML = SANDBOX_DATA.logs.map(log => {
+    const uid = 'wh_' + Math.random().toString(36).substr(2, 9);
+    return `
+      <tr style="border-bottom:1px solid #1E2130;font-size:13px;">
+        <td style="padding:10px 12px;text-align:center;"><input type="checkbox" disabled style="opacity:0.3;cursor:not-allowed;"></td>
+        <td style="padding:10px 12px;">
+          <span style="color:${colors[log.status]};font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">${log.status}</span>
+        </td>
+        <td style="padding:10px 12px;color:#8B92A5;">${log.dest}</td>
+        <td style="padding:10px 12px;color:#F0F2F7;">${log.topic}</td>
+        <td style="padding:10px 12px;color:#4B5267;font-family:'JetBrains Mono',monospace;font-size:11px;">${uid}</td>
+        <td style="padding:10px 12px;color:#8B92A5;text-align:center;">${log.attempt}</td>
+        <td style="padding:10px 12px;color:#8B92A5;">${log.latency}</td>
+        <td style="padding:10px 12px;color:${log.code===200?'#2ECC8C':'#EF4444'};font-weight:600;">${log.code}</td>
+        <td style="padding:10px 12px;">
+          <span style="color:#2E3347;font-size:11px;font-style:italic;">demo</span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/* ---- Countdown ---- */
+function _sbStartCountdown() {
+  const end = Date.now() + SANDBOX_DURATION_MS;
+
+  window._sandboxInterval = setInterval(() => {
+    const remaining = end - Date.now();
+
+    if (remaining <= 0) {
+      clearInterval(window._sandboxInterval);
+      _sbExpire();
+      return;
+    }
+
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    const display = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    _sbSet('sandbox-countdown', display);
+
+    // Red countdown in last 5 minutes
+    if (remaining < 5 * 60 * 1000) {
+      const el = document.getElementById('sandbox-countdown');
+      if (el) el.style.color = '#EF4444';
+    }
+  }, 1000);
+}
+
+/* ---- Session Expired ---- */
+function _sbExpire() {
+  window._sandboxMode = false;
+  const banner = document.getElementById('sandbox-banner');
+  if (!banner) return;
+
+  banner.style.background    = '#1a0a0a';
+  banner.style.borderColor   = '#EF4444';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;color:#FCA5A5;">
+      <span style="
+        background:#EF4444;color:#fff;
+        font-size:10px;font-weight:700;
+        padding:2px 8px;border-radius:3px;
+        letter-spacing:0.06em;
+      ">SESSION EXPIRED</span>
+      Your demo session has ended. Create a free account to save your work.
+    </div>
+    <button
+      onclick="const m = document.getElementById('modal-auth'); if (m) m.classList.add('active');"
+      style="
+        background:#EF4444;color:#fff;border:none;
+        border-radius:6px;padding:6px 16px;
+        font-size:12px;font-weight:600;cursor:pointer;
+        font-family:inherit;
+      "
+    >Create Free Account &rarr;</button>
+  `;
+}
+
+/* ---- Helper ---- */
+function _sbSet(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+/* ---- Sandbox Guard — wrap around write API calls ---- */
+window.sandboxGuard = function(label, apiFn) {
+  if (window._sandboxMode) {
+    console.log(`[Sandbox] Blocked write: ${label}`);
+    alert('Demo mode — create a free account to save changes');
+    return Promise.resolve(null);
+  }
+  return apiFn();
+};
+
+/* ---- Wire up buttons after DOM ready ---- */
+document.addEventListener('DOMContentLoaded', () => {
+  // Try Demo button
+  const tryBtn = document.getElementById('try-demo-btn');
+  if (tryBtn) tryBtn.addEventListener('click', window.activateSandboxMode);
+
+  // Save My Progress CTA in banner
+  const saveBtn = document.getElementById('sandbox-signup-cta');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const modal = document.getElementById('modal-auth');
+      if (modal) modal.classList.add('active');
+    });
+  }
+});
+
+/* =============================================================
+   END SANDBOX MODE
+   ============================================================= */
+
 'use strict';
 
 // Global state variables
@@ -381,11 +661,14 @@ async function handleRegisterEndpoint(e) {
   const events = eventsRaw.split(',').map(ev => ev.trim()).filter(Boolean);
 
   try {
-    const res = await apiFetch('/api/endpoints', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, url, secret, events, description, integration, headers, maxRPM, circuitThreshold, transformationScript })
-    });
+    const res = await sandboxGuard('register-endpoint', () =>
+      apiFetch('/api/endpoints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, url, secret, events, description, integration, headers, maxRPM, circuitThreshold, transformationScript })
+      })
+    );
+    if (!res) return;
     
     if (res.ok) {
       document.getElementById('ep-id').value = '';
@@ -417,7 +700,10 @@ async function deleteEndpoint(id) {
   if (!confirm(`Are you sure you want to unregister '${id}'?`)) return;
 
   try {
-    const res = await fetch(`/api/endpoints/${id}`, { method: 'DELETE' });
+    const res = await sandboxGuard('delete-endpoint', () =>
+      fetch(`/api/endpoints/${id}`, { method: 'DELETE' })
+    );
+    if (!res) return;
     if (res.ok) {
       fetchEndpoints();
     } else {
@@ -432,7 +718,10 @@ async function deleteEndpoint(id) {
 async function toggleEndpointStatus(id, active) {
   const endpoint = active ? 'activate' : 'deactivate';
   try {
-    const res = await fetch(`/api/endpoints/${id}/${endpoint}`, { method: 'POST' });
+    const res = await sandboxGuard('toggle-endpoint-status', () =>
+      fetch(`/api/endpoints/${id}/${endpoint}`, { method: 'POST' })
+    );
+    if (!res) return;
     if (res.ok) {
       fetchEndpoints();
     } else {
@@ -475,11 +764,14 @@ async function handleFireWebhook() {
   spawnConfetti(btn);
 
   try {
-    const res = await apiFetch('/api/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, data })
-    });
+    const res = await sandboxGuard('fire-event', () =>
+      apiFetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event, data })
+      })
+    );
+    if (!res) return;
     
     if (res.ok) {
       setTimeout(pollDashboard, 100);
@@ -498,7 +790,10 @@ async function handleFireWebhook() {
 async function handleClearLogs() {
   if (!confirm('Clear all webhook engine logs?')) return;
   try {
-    await apiFetch('/api/logs/clear', { method: 'POST' });
+    const res = await sandboxGuard('clear-logs', () =>
+      apiFetch('/api/logs/clear', { method: 'POST' })
+    );
+    if (!res) return;
     pollDashboard();
   } catch (err) {
     console.error(err);
@@ -673,6 +968,7 @@ function renderEndpointsList(endpoints) {
 }
 
 async function pollDashboard() {
+  if (window._sandboxMode) return;
   const modal = document.getElementById('modal-auth');
   if (modal && modal.classList.contains('active')) {
     return;
@@ -1084,7 +1380,10 @@ window.replayDelivery = async function(logId) {
     lucide.createIcons();
   }
   try {
-    const res = await fetch(`/api/logs/${logId}/replay`, { method: 'POST' });
+    const res = await sandboxGuard('replay-delivery', () =>
+      fetch(`/api/logs/${logId}/replay`, { method: 'POST' })
+    );
+    if (!res) return;
     if (res.ok) {
       // Trigger canvas burst celebration
       if (window.triggerCanvasBurst) window.triggerCanvasBurst();
@@ -1122,6 +1421,10 @@ function escapeHtml(str) {
 }
 
 async function handleUpgradeClick() {
+  if (window._sandboxMode) {
+    alert('Demo mode — create a free account to save changes');
+    return;
+  }
   const btn = document.getElementById('btn-upgrade-plan');
   const originalHtml = btn.innerHTML;
   btn.disabled = true;
@@ -1493,11 +1796,14 @@ async function handleRedriveSelected() {
   const deliveryIds = Array.from(selectedLogIds);
 
   try {
-    const res = await apiFetch('/api/logs/bulk-replay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deliveryIds })
-    });
+    const res = await sandboxGuard('redrive-selected', () =>
+      apiFetch('/api/logs/bulk-replay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deliveryIds })
+      })
+    );
+    if (!res) return;
 
     const data = await res.json();
     if (res.ok) {
@@ -1590,11 +1896,14 @@ async function handleBulkRedriveSubmit(e) {
   }
 
   try {
-    const res = await apiFetch('/api/logs/bulk-replay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpointId, status, since, before })
-    });
+    const res = await sandboxGuard('bulk-redrive', () =>
+      apiFetch('/api/logs/bulk-replay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpointId, status, since, before })
+      })
+    );
+    if (!res) return;
 
     const data = await res.json();
     if (res.ok) {
@@ -1636,15 +1945,18 @@ window.handleBulkRedriveExecution = async function() {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 
   try {
-    const response = await apiFetch('/api/logs/bulk-retry', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
-        filterStatus: filterStatus || null
+    const response = await sandboxGuard('bulk-retry', () =>
+      apiFetch('/api/logs/bulk-retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startTime: new Date(startTime).toISOString(),
+          endTime: new Date(endTime).toISOString(),
+          filterStatus: filterStatus || null
+        })
       })
-    });
+    );
+    if (!response) return;
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Failed to process batch routing request.");
@@ -1700,11 +2012,14 @@ async function handleSaveAlertSettings(e) {
   btn.textContent = 'Saving...';
 
   try {
-    const res = await apiFetch('/api/org/alert-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slackWebhookUrl, pagerDutyRoutingKey, notifyOnFailureCount, enabled })
-    });
+    const res = await sandboxGuard('save-alert-settings', () =>
+      apiFetch('/api/org/alert-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slackWebhookUrl, pagerDutyRoutingKey, notifyOnFailureCount, enabled })
+      })
+    );
+    if (!res) return;
 
     if (res.ok) {
       if (window.triggerCanvasBurst) window.triggerCanvasBurst();
@@ -1738,11 +2053,14 @@ async function handleTestAlertSettings() {
   btn.textContent = 'Testing...';
 
   try {
-    const res = await apiFetch('/api/org/alert-settings/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slackWebhookUrl, pagerDutyRoutingKey })
-    });
+    const res = await sandboxGuard('test-alert-settings', () =>
+      apiFetch('/api/org/alert-settings/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slackWebhookUrl, pagerDutyRoutingKey })
+      })
+    );
+    if (!res) return;
 
     if (res.ok) {
       if (window.triggerCanvasBurst) window.triggerCanvasBurst();
@@ -1786,11 +2104,14 @@ async function handleTestTransformDryRun() {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 
   try {
-    const res = await apiFetch('/api/endpoints/test-transformation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload, scriptString })
-    });
+    const res = await sandboxGuard('test-transformation', () =>
+      apiFetch('/api/endpoints/test-transformation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload, scriptString })
+      })
+    );
+    if (!res) return;
 
     const data = await res.json();
     resultBox.style.display = 'block';

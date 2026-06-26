@@ -15,6 +15,55 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- SANDBOX BANNER — hidden until demo activated -->
+  <div
+    id="sandbox-banner"
+    style="
+      display:none;
+      position:fixed;
+      top:0;left:0;right:0;
+      z-index:99999;
+      background:#0a1628;
+      border-bottom:1.5px solid #3E7BFA;
+      padding:8px 20px;
+      align-items:center;
+      justify-content:space-between;
+      font-size:13px;
+      font-family:inherit;
+    "
+  >
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="
+        background:#3E7BFA;
+        color:#fff;
+        font-size:10px;
+        font-weight:700;
+        padding:2px 8px;
+        border-radius:3px;
+        letter-spacing:0.06em;
+      ">SANDBOX</span>
+      <span style="color:#A8C8FF;">
+        Demo session active — resets in
+        <strong id="sandbox-countdown" style="color:#fff;font-family:'JetBrains Mono',monospace;">30:00</strong>
+      </span>
+      <span style="color:#4B5267;font-size:11px;">| No data is saved</span>
+    </div>
+    <button
+      id="sandbox-signup-cta"
+      style="
+        background:#3E7BFA;
+        color:#fff;
+        border:none;
+        border-radius:6px;
+        padding:6px 16px;
+        font-size:12px;
+        font-weight:600;
+        cursor:pointer;
+        font-family:inherit;
+      "
+    >Create Free Account &rarr;</button>
+  </div>
+
   <!-- HTML5 Background Space Simulation -->
   <canvas id="canvas-space-simulation"></canvas>
 
@@ -687,6 +736,31 @@
             <button class="btn btn-primary auth-submit-btn" id="auth-submit-btn" style="width: 100%; justify-content: center; margin-top: 10px;">
               <i data-lucide="unlock" style="width:1rem;height:1rem;margin-right:6px;"></i> Sign In
             </button>
+            <!-- SANDBOX TRY DEMO BUTTON -->
+            <div style="text-align:center; margin:10px 0;">
+              <div style="font-size:11px;color:#4B5267;margin-bottom:8px;letter-spacing:0.03em;">— or explore without signing up —</div>
+              <button
+                type="button"
+                id="try-demo-btn"
+                style="
+                  width:100%;
+                  padding:11px 0;
+                  background:transparent;
+                  border:1.5px solid #3E7BFA;
+                  border-radius:7px;
+                  color:#3E7BFA;
+                  font-size:13px;
+                  font-weight:600;
+                  cursor:pointer;
+                  letter-spacing:0.02em;
+                  transition:background 0.15s,color 0.15s;
+                  font-family:inherit;
+                "
+                onmouseover="this.style.background='#0d1a3a'"
+                onmouseout="this.style.background='transparent'"
+              >⚡ Try Live Demo — No Signup Needed</button>
+              <div style="font-size:11px;color:#4B5267;margin-top:5px;">Full dashboard · No email · Resets in 30 min</div>
+            </div>
           </div>
 
           <!-- Onboard Pane -->
