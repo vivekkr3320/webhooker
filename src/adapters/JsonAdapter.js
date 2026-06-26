@@ -106,8 +106,8 @@ class JsonAdapter {
   }
 
   _read() {
-    // Always return the in-memory copy (avoids repeated disk I/O in serverless)
-    if (this._memDb) return this._memDb;
+    const isVercel = !!process.env.VERCEL;
+    if (isVercel && this._memDb) return this._memDb;
 
     try {
       if (this._fsAvailable && fs.existsSync(this.dbPath)) {
@@ -123,6 +123,7 @@ class JsonAdapter {
       // fall through to empty default
     }
 
+    if (this._memDb) return this._memDb;
     this._memDb = { endpoints: [], deliveries: [], organizations: [], apiKeys: [], sessions: [], webhook_logs: [] };
     return this._memDb;
   }

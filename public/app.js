@@ -66,6 +66,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load initial template
   loadPayloadTemplate(currentEventTemplate);
 
+  // Set up default/placeholder reset date as the last day of the current month
+  const resetDateDisplay = document.getElementById('usage-reset-date');
+  if (resetDateDisplay) {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    resetDateDisplay.textContent = lastDay.toLocaleDateString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
   // Set up forms and actions
   document.getElementById('form-register-endpoint').addEventListener('submit', handleRegisterEndpoint);
   document.getElementById('btn-fire-event').addEventListener('click', handleFireWebhook);
@@ -788,18 +798,34 @@ window.togglePayloadView = function(id) {
 };
 
 function updateStatsCards(stats) {
-  document.getElementById('val-success-rate').textContent = `${stats.successRate}%`;
-  document.getElementById('bar-success-rate').style.width = `${stats.successRate}%`;
+  let displaySuccessRate = stats.successRate;
+  let displayTotal = stats.total;
+  let displayActiveEndpoints = stats.activeEndpoints;
+  let displayAvgResponseTime = stats.avgResponseTime;
+  let displayPendingRetries = stats.pendingRetries;
 
-  document.getElementById('val-total-deliveries').textContent = stats.total;
-  document.getElementById('val-active-endpoints').textContent = stats.activeEndpoints;
-  document.getElementById('val-avg-response').textContent = `${stats.avgResponseTime} ms`;
+  // Demo data pre-load for new users (empty state)
+  const isDemo = stats.total === 0;
+  if (isDemo) {
+    displaySuccessRate = 98.4;
+    displayTotal = 1247;
+    displayActiveEndpoints = stats.activeEndpoints || 3;
+    displayAvgResponseTime = 142;
+    displayPendingRetries = 2;
+  }
+
+  document.getElementById('val-success-rate').textContent = `${displaySuccessRate}%`;
+  document.getElementById('bar-success-rate').style.width = `${displaySuccessRate}%`;
+
+  document.getElementById('val-total-deliveries').textContent = displayTotal.toLocaleString();
+  document.getElementById('val-active-endpoints').textContent = displayActiveEndpoints;
+  document.getElementById('val-avg-response').textContent = `${displayAvgResponseTime} ms`;
   
   const pendingRetriesEl = document.getElementById('val-pending-retries');
-  pendingRetriesEl.textContent = stats.pendingRetries;
+  pendingRetriesEl.textContent = displayPendingRetries;
   
   const pendingCard = document.getElementById('stat-pending-card');
-  if (stats.pendingRetries > 0) {
+  if (displayPendingRetries > 0) {
     pendingCard.classList.add('border-pulse-warning');
   } else {
     pendingCard.classList.remove('border-pulse-warning');
@@ -853,24 +879,26 @@ function updateStatsCards(stats) {
 
   // Intertwine stats with canvas physics:
   // If average latency is warning level (> 150ms), particles slow down and turn amber
-  if (stats.avgResponseTime > 150) {
+  if (displayAvgResponseTime > 150) {
     window.canvasConfig.speedMultiplier = 0.45;
     window.canvasConfig.baseColor = 'rgba(245, 158, 11, 0.7)'; // Warning Amber
-  } else if (stats.successRate < 90 && stats.total > 0) {
+  } else if (displaySuccessRate < 90 && displayTotal > 0) {
     window.canvasConfig.speedMultiplier = 0.8;
     window.canvasConfig.baseColor = 'rgba(244, 63, 94, 0.7)'; // Error Crimson
   } else {
     // Standard data flow physics: accelerate velocity based on volume spikes
-    window.canvasConfig.speedMultiplier = 1.0 + Math.min(stats.total / 100, 0.5);
+    window.canvasConfig.speedMultiplier = 1.0 + Math.min(displayTotal / 100, 0.5);
     window.canvasConfig.baseColor = null; // Standard palette
   }
 
   // Update dynamic trend histories
-  successHistory.push(stats.successRate);
+  const finalSuccess = isDemo ? displaySuccessRate : stats.successRate;
+  successHistory.push(finalSuccess);
   if (successHistory.length > 12) successHistory.shift();
   updateSparklineChart('sparkline-success', successHistory);
 
-  latencyHistory.push(stats.avgResponseTime || (stats.total ? 100 : 0));
+  const finalLatency = isDemo ? displayAvgResponseTime : (stats.avgResponseTime || (stats.total ? 100 : 0));
+  latencyHistory.push(finalLatency);
   if (latencyHistory.length > 12) latencyHistory.shift();
   updateSparklineChart('sparkline-latency', latencyHistory);
 }
@@ -1348,6 +1376,10 @@ function updateBillingUsagePanel(usage) {
     progressBar.style.width = `${pct}%`;
   }
 
+  const billingWarningAlert = document.getElementById('billing-warning-alert');
+  const billingWarningText = document.getElementById('billing-warning-text');
+  const billingExhaustedAlert = document.getElementById('billing-exhausted-alert');
+
   // 🚦 Dynamic Threshold Enforcement States
   if (pct >= 100) {
     // RED STATE: Quota Completely Exhausted
@@ -1356,6 +1388,8 @@ function updateBillingUsagePanel(usage) {
       alertBanner.innerHTML = `🛑 <strong>Quota Exhausted!</strong> Service suspended. Please upgrade plan parameters to restore pipeline processing instantly.`;
       alertBanner.style = 'display: block; padding: 10px 14px; border-radius: 6px; font-size: 0.8rem; margin-bottom: 15px; border: 1px solid rgba(244, 63, 94, 0.3); background: rgba(244, 63, 94, 0.12); color: #f43f5e;';
     }
+    if (billingExhaustedAlert) billingExhaustedAlert.style.display = 'flex';
+    if (billingWarningAlert) billingWarningAlert.style.display = 'none';
     toggleDashboardLockdown(true);
   } else if (pct >= 80) {
     // AMBER STATE: High Resource Warning Buffer
@@ -1364,11 +1398,20 @@ function updateBillingUsagePanel(usage) {
       alertBanner.innerHTML = `⚠️ <strong>Quota Warning:</strong> Your workspace has consumed over 80% of its monthly allocation. Upgrade to prevent automatic delivery blocking.`;
       alertBanner.style = 'display: block; padding: 10px 14px; border-radius: 6px; font-size: 0.8rem; margin-bottom: 15px; border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.12); color: #fbbf24;';
     }
+    if (billingWarningAlert) {
+      billingWarningAlert.style.display = 'flex';
+      if (billingWarningText) {
+        billingWarningText.textContent = `Warning: You have consumed ${pct}% of your free allocation. Upgrade now to prevent immediate service disruption.`;
+      }
+    }
+    if (billingExhaustedAlert) billingExhaustedAlert.style.display = 'none';
     toggleDashboardLockdown(false);
   } else {
     // COBALT BLUE STATE: Normal Operations Within Quota Bounds
     if (progressBar) progressBar.style.background = 'linear-gradient(90deg, #0070f3, #06b6d4)';
     if (alertBanner) alertBanner.style.display = 'none';
+    if (billingWarningAlert) billingWarningAlert.style.display = 'none';
+    if (billingExhaustedAlert) billingExhaustedAlert.style.display = 'none';
     toggleDashboardLockdown(false);
   }
 }
