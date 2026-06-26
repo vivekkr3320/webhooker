@@ -59,6 +59,7 @@ window._sandboxInterval = null;
 /* ---- Activate ---- */
 window.activateSandboxMode = function() {
   window._sandboxMode = true;
+  sessionStorage.setItem('webhookengine_sandbox', 'true');
 
   // Push dashboard down so banner doesn't overlap
   document.body.style.paddingTop = '42px';
@@ -215,6 +216,7 @@ function _sbStartCountdown() {
 /* ---- Session Expired ---- */
 function _sbExpire() {
   window._sandboxMode = false;
+  sessionStorage.removeItem('webhookengine_sandbox');
   const banner = document.getElementById('sandbox-banner');
   if (!banner) return;
 
@@ -333,6 +335,10 @@ const PAYLOAD_TEMPLATES = {
 // Initialization & Event Listeners
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('webhookengine_sandbox') === 'true') {
+    window.activateSandboxMode();
+  }
+
   // Bind Code Editor highlighting synchronizations
   const textarea = document.getElementById('event-payload');
   const backdrop = document.getElementById('highlight-backdrop');

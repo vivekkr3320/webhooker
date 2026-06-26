@@ -116,6 +116,8 @@
 
       const data = await res.json();
       if (res.ok && data.success) {
+        window._sandboxMode = false;
+        sessionStorage.removeItem('webhookengine_sandbox');
         window._authToken = data.apiKey || 'session_active';
         hideAuthModal();
         const logoutBtn = document.getElementById('btn-logout');
@@ -150,6 +152,8 @@
 
     if (generatedKey) {
       // Key was already generated, user clicked "Continue to Dashboard"
+      window._sandboxMode = false;
+      sessionStorage.removeItem('webhookengine_sandbox');
       window._authToken = generatedKey || 'session_active';
       hideAuthModal();
       const logoutBtn = document.getElementById('btn-logout');
