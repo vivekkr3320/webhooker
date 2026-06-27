@@ -232,6 +232,7 @@
 
   // ── Check session state on load ──────────────────────────────────────────────
   async function checkAuthOnLoad() {
+    if (window._sandboxMode) return;
     try {
       const res = await fetch('/api/auth/me');
       if (res.ok && res.status === 200) {
