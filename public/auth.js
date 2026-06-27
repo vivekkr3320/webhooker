@@ -54,6 +54,7 @@
 
   // ── Auth Modal ──────────────────────────────────────────────────────────────
   function showAuthModal(errorMsg = '') {
+    if (window._sandboxMode) return;
     const modal = document.getElementById('modal-auth');
     if (!modal) return;
 
