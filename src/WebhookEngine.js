@@ -67,11 +67,32 @@ class WebhookEngine extends EventEmitter {
   // ─── Dual-Lane Priority Queue helpers (Persistent) ─────────────────────────
 
   _startWorker() {
-    this._workerTimer = setInterval(() => {
-      this._pollAndProcessQueue().catch(err => {
+    this._workerDelay = this._workerPollInterval;
+    this._runWorkerCycle();
+  }
+
+  _runWorkerCycle() {
+    this._workerTimer = setTimeout(async () => {
+      try {
+        await this._pollAndProcessQueue();
+        this._workerDelay = this._workerPollInterval; // Reset on success
+      } catch (err) {
         logger.error({ err: err.message }, 'Queue worker polling cycle error');
-      });
-    }, this._workerPollInterval);
+        
+        // Backoff on database connection / DNS errors
+        if (err.message.includes('ENOTFOUND') || err.message.includes('ECONNREFUSED') || err.message.includes('connection')) {
+          if (this._workerDelay < 30000) {
+            this._workerDelay = 30000;
+          } else {
+            this._workerDelay = Math.min(this._workerDelay * 2, 60000);
+          }
+          logger.warn({ nextRetryInSeconds: this._workerDelay / 1000 }, 'Database connection error in queue worker, backing off');
+        } else {
+          this._workerDelay = this._workerPollInterval; // Keep default for other errors
+        }
+      }
+      this._runWorkerCycle();
+    }, this._workerDelay);
   }
 
   async _pollAndProcessQueue() {
@@ -948,7 +969,7 @@ class WebhookEngine extends EventEmitter {
   }
   close() {
     if (this._workerTimer) {
-      clearInterval(this._workerTimer);
+      clearTimeout(this._workerTimer);
     }
   }
 }
