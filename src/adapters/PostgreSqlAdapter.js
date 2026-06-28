@@ -55,11 +55,12 @@ class PostgreSqlAdapter {
   async saveOrganization(orgId, orgData) {
     await this.query(
       `INSERT INTO organizations (
-        id, "ownerEmail", "razorpayCustomerId", "razorpaySubscriptionId", 
+        id, "ownerEmail", "passwordHash", "razorpayCustomerId", "razorpaySubscriptionId", 
         "planTier", "subscriptionStatus", "monthlyUsageCount", "quotaResetDate"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       ON CONFLICT (id) DO UPDATE SET
         "ownerEmail" = EXCLUDED."ownerEmail",
+        "passwordHash" = EXCLUDED."passwordHash",
         "razorpayCustomerId" = EXCLUDED."razorpayCustomerId",
         "razorpaySubscriptionId" = EXCLUDED."razorpaySubscriptionId",
         "planTier" = EXCLUDED."planTier",
@@ -69,6 +70,7 @@ class PostgreSqlAdapter {
       [
         orgId,
         orgData.ownerEmail,
+        orgData.passwordHash,
         orgData.razorpayCustomerId,
         orgData.razorpaySubscriptionId,
         orgData.planTier,

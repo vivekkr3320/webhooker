@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS organizations (
   id VARCHAR(255) PRIMARY KEY,
   "ownerEmail" VARCHAR(255) UNIQUE NOT NULL,
+  "passwordHash" VARCHAR(255),
   "razorpayCustomerId" VARCHAR(255),
   "razorpaySubscriptionId" VARCHAR(255),
   "planTier" VARCHAR(50) DEFAULT 'free',
@@ -12,6 +13,9 @@ CREATE TABLE IF NOT EXISTS organizations (
   "monthlyUsageCount" INTEGER DEFAULT 0,
   "quotaResetDate" VARCHAR(255)
 );
+
+-- Ensure passwordHash column exists (for upgrading existing PostgreSQL databases)
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS "passwordHash" VARCHAR(255);
 
 -- 2. API Keys
 CREATE TABLE IF NOT EXISTS "apiKeys" (
