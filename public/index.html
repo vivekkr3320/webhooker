@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Mobile Performance -->
+  <meta name="theme-color" content="#0D0F14">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>WebhookEngine — Webhook Infrastructure for Developers</title>
   <!-- SEO Elements -->
   <meta name="description" content="Receive, route, and retry webhooks reliably. HMAC verification, Dead Letter Queue, real-time delivery logs, and JS payload transformation. Free to start.">
@@ -20,7 +24,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="mobile-optimized">
   <!-- SANDBOX BANNER — hidden until demo activated -->
   <div
     id="sandbox-banner"
@@ -895,7 +899,7 @@
   <script src="canvas.js"></script>
   <script src="auth.js"></script>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
   <script>
     // Load Lucide Icons
     lucide.createIcons();

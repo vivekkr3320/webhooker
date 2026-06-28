@@ -524,6 +524,23 @@ app.get('/api/endpoints/:id/health', stealthGuard('endpoint'), async (req, res) 
   }
 });
 
+// ── Health Endpoint & Keep-Alive ──────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+if (process.env.NODE_ENV === 'production') {
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://webhooker-4.onrender.com';
+  setInterval(async () => {
+    try {
+      await fetch(`${RENDER_URL}/health`);
+      console.log('[Keep-alive] Ping sent');
+    } catch (e) {
+      console.log('[Keep-alive] Ping failed:', e.message);
+    }
+  }, 14 * 60 * 1000); // har 14 minute pe ping
+}
+
 // ── Start server ──────────────────────────────────────────────────────────────
 if (require.main === module || !process.env.VERCEL) {
   app.listen(PORT, () => {

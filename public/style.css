@@ -1607,3 +1607,23 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
 }
+
+/* Mobile performance */
+@media (max-width: 768px) {
+  /* Disable heavy animations on mobile */
+  * {
+    animation-duration: 0.1ms !important;
+    transition-duration: 0.1ms !important;
+  }
+  
+  /* Hide non-essential sections on mobile */
+  #security-config-section,
+  #razorpay-simulator-section {
+    display: none;
+  }
+  
+  /* Stack cards vertically */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}

@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Start polling loop (runs safely in background, returning early if auth modal is active)
-  pollingTimer = setInterval(pollDashboard, 1500);
+  pollingTimer = setInterval(pollDashboard, 30000);
   const alertForm = document.getElementById('form-alert-settings');
   if (alertForm) alertForm.addEventListener('submit', handleSaveAlertSettings);
   const alertTestBtn = document.getElementById('btn-test-alerts');
